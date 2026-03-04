@@ -405,8 +405,8 @@ const OWNERSHIP_MERGES = [
   {
     // tantan1 (Arlington XL Boys) → Bsmitty (Henrico Havoc Hogs)
     // Bsmitty took over the same roster in 2024
-    legacyUserId:    "834619940182032384",   // replace with tantan1's actual Sleeper user_id
-    canonicalUserId: "1007997964816330752",   // replace with Bsmitty's actual Sleeper user_id
+    legacyUserId:    "TANTAN1_USER_ID",   // replace with tantan1's actual Sleeper user_id
+    canonicalUserId: "BSMITTY_USER_ID",   // replace with Bsmitty's actual Sleeper user_id
     seasonTeamNames: {
       // Display name per season — uses team name at the time
       "2022": "Arlington XL Boys",
@@ -459,7 +459,7 @@ let draftPickMap = {};    // { "leagueId:season:round:rosterId": "1.06 — Patri
 document.addEventListener("DOMContentLoaded", async () => {
   buildYearPills();
   // Fetch player map and season data in parallel
-  const [, ] = await Promise.all([
+  await Promise.all([
     fetchAllSeasons(),
     fetchPlayerMap(),
   ]);
@@ -496,17 +496,39 @@ async function fetchPlayerMap() {
 }
 
 async function buildDraftPickMap() {
-  for (const [year, sd] of Object.entries(allSeasonData)) {
+  // Fetch all rookie/annual drafts keyed by season year
+  // Key format: "season:round:roster_id" → "2023 1.06 — Bijan Robinson (RB)"
+  // We skip the startup draft (2022) as pick slot notation doesn't apply
+  const rookieDraftYears = Object.keys(LEAGUE_CONFIG.seasons)
+    .filter(y => parseInt(y) >= 2023);
+
+  for (const year of rookieDraftYears) {
     const lid = LEAGUE_CONFIG.seasons[year];
     try {
       const picks = await fetch(`/api/league/${lid}/draft`).then(r => r.json());
-      if (!Array.isArray(picks)) continue;
+      if (!Array.isArray(picks) || picks.length === 0) continue;
+
+      // Group picks by round to calculate slot number within each round
+      const picksByRound = {};
+      picks.forEach(p => {
+        if (!picksByRound[p.round]) picksByRound[p.round] = [];
+        picksByRound[p.round].push(p);
+      });
+
+      // Sort each round by pick_no so slot = position within that round
+      Object.values(picksByRound).forEach(rnd => rnd.sort((a, b) => a.pick_no - b.pick_no));
+
       picks.forEach(pick => {
-        // Key: leagueId:season:round:roster_id of the team that originally owned the pick
-        const key = `${lid}:${year}:${pick.round}:${pick.roster_id}`;
-        const slot = `${pick.round}.${String(pick.pick_no % (picks.filter(p=>p.round===pick.round).length) || picks.filter(p=>p.round===pick.round).length).padStart(2,'0')}`;
-        const drafted = pick.player_id ? playerName(pick.player_id) : "Unknown";
-        draftPickMap[key] = `${year} ${slot} — ${drafted}`;
+        const roundPicks = picksByRound[pick.round];
+        // slot = 1-indexed position within the round
+        const slotIndex = roundPicks.findIndex(p => p.pick_no === pick.pick_no) + 1;
+        const slot = `${pick.round}.${String(slotIndex).padStart(2, '0')}`;
+        const drafted = pick.player_id ? playerName(pick.player_id) : null;
+        // Key by season:round:roster_id — matches the draft_picks shape in trade transactions
+        const key = `${year}:${pick.round}:${pick.roster_id}`;
+        draftPickMap[key] = drafted
+          ? `${year} ${slot} — ${drafted}`
+          : `${year} ${slot}`;
       });
     } catch(e) {
       console.warn(`Draft picks fetch failed for ${year}:`, e.message);
@@ -514,11 +536,12 @@ async function buildDraftPickMap() {
   }
 }
 
-function resolveDraftPick(pick, leagueId) {
-  // pick has: season, round, roster_id (original owner), owner_id (new owner after trade)
-  const key = `${leagueId}:${pick.season}:${pick.round}:${pick.roster_id}`;
+function resolveDraftPick(pick) {
+  // Trade draft_picks shape: { season, round, roster_id, owner_id, previous_owner_id }
+  // Match by season:round:roster_id — roster_id is the original owning roster
+  const key = `${pick.season}:${pick.round}:${pick.roster_id}`;
   if (draftPickMap[key]) return draftPickMap[key];
-  // Draft hasn't happened yet — just show round
+  // Draft hasn't happened yet (future pick) — show descriptive label
   return `${pick.season} Round ${pick.round} Pick`;
 }
 
@@ -875,9 +898,8 @@ async function loadTrades() {
     // What each side received
     const adds1 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r1id).map(([pid]) => playerName(pid));
     const adds2 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r2id).map(([pid]) => playerName(pid));
-    const lid = LEAGUE_CONFIG.seasons[t.year];
-    const picks1 = (tx.draft_picks || []).filter(p => p.owner_id === t.r1id).map(p => resolveDraftPick(p, lid));
-    const picks2 = (tx.draft_picks || []).filter(p => p.owner_id === t.r2id).map(p => resolveDraftPick(p, lid));
+    const picks1 = (tx.draft_picks || []).filter(p => p.owner_id === t.r1id).map(p => resolveDraftPick(p));
+    const picks2 = (tx.draft_picks || []).filter(p => p.owner_id === t.r2id).map(p => resolveDraftPick(p));
 
     const assets1 = [...adds1, ...picks1];
     const assets2 = [...adds2, ...picks2];
