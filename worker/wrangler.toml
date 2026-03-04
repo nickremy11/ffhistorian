@@ -1,0 +1,12 @@
+name = "ffhistorian-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+routes = [
+  { pattern = "ffhistorian.com/api/*", zone_name = "ffhistorian.com" }
+]
+
+[[kv_namespaces]]
+binding = "FF_CACHE"
+id = "c8fa6169e99b4202a9aa6441e0a39aba"
+```

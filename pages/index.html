@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FF Historian</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rye&family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream: #f5ead6;
+      --parchment: #e8d5b0;
+      --brown-dark: #2a1a0e;
+      --brown-mid: #5c3d1e;
+      --brown-light: #8b5e2e;
+      --green: #2d4a1e;
+      --green-light: #4a7a2f;
+      --red: #8b1a1a;
+      --gold: #c9962a;
+      --gold-light: #e8b84b;
+      --ink: #1a1008;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background-color: var(--cream);
+      color: var(--ink);
+      font-family: 'Crimson Text', Georgia, serif;
+      min-height: 100vh;
+      background-image:
+        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9962a' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    /* ── NOISE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.35;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
+    }
+
+    .page-wrap { position: relative; z-index: 1; }
+
+    /* ── BANNER ── */
+    .banner {
+      background: var(--green);
+      border-bottom: 6px double var(--gold);
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 10px,
+        rgba(0,0,0,0.06) 10px,
+        rgba(0,0,0,0.06) 11px
+      );
+    }
+    .banner-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 48px 32px 40px;
+      text-align: center;
+    }
+    .banner-eyebrow {
+      font-family: 'Rye', serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.35em;
+      color: var(--gold-light);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      opacity: 0.85;
+    }
+    .banner h1 {
+      font-family: 'Rye', serif;
+      font-size: clamp(2rem, 5vw, 3.8rem);
+      color: var(--cream);
+      line-height: 1.1;
+      text-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+      letter-spacing: 0.02em;
+    }
+    .banner h1 span {
+      color: var(--gold-light);
+    }
+    .banner-sub {
+      margin-top: 14px;
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 1.15rem;
+      color: var(--parchment);
+      opacity: 0.8;
+    }
+    .banner-divider {
+      margin: 18px auto 0;
+      width: 200px;
+      height: 2px;
+      background: linear-gradient(to right, transparent, var(--gold), transparent);
+    }
+
+    /* ── FOOTBALL LACE SVG DECORATION ── */
+    .lace-row {
+      text-align: center;
+      padding: 18px 0 4px;
+      color: var(--brown-light);
+      font-size: 1.4rem;
+      letter-spacing: 0.5em;
+      opacity: 0.5;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 32px 80px;
+    }
+
+    .section-label {
+      font-family: 'Rye', serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--brown-light);
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .section-label::before,
+    .section-label::after {
+      content: ' ✦ ';
+      color: var(--gold);
+    }
+
+    /* ── LEAGUE GRID ── */
+    .league-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .league-card {
+      background: var(--brown-dark);
+      border: 2px solid var(--brown-mid);
+      border-radius: 2px;
+      overflow: hidden;
+      text-decoration: none;
+      display: block;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 4px 4px 0 var(--brown-mid);
+    }
+    .league-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(201,150,42,0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .league-card:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 var(--gold);
+    }
+
+    .card-logo-bar {
+      background: var(--green);
+      height: 90px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 3px solid var(--gold);
+      font-size: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-logo-bar::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 8px,
+        rgba(255,255,255,0.03) 8px,
+        rgba(255,255,255,0.03) 9px
+      );
+    }
+
+    .card-body {
+      padding: 18px 20px 20px;
+    }
+    .card-number {
+      font-family: 'Rye', serif;
+      font-size: 0.6rem;
+      letter-spacing: 0.3em;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .card-name {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--cream);
+      line-height: 1.3;
+    }
+    .card-platform {
+      display: inline-block;
+      margin-top: 10px;
+      font-family: 'Crimson Text', serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green-light);
+      border: 1px solid var(--green-light);
+      padding: 2px 8px;
+      border-radius: 1px;
+    }
+    .card-arrow {
+      position: absolute;
+      bottom: 18px;
+      right: 18px;
+      width: 28px;
+      height: 28px;
+      border: 1.5px solid var(--gold);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gold);
+      font-size: 0.9rem;
+      opacity: 0.6;
+      transition: opacity 0.2s, background 0.2s;
+    }
+    .league-card:hover .card-arrow {
+      opacity: 1;
+      background: var(--gold);
+      color: var(--brown-dark);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 3px double var(--brown-light);
+      padding: 24px 32px;
+      text-align: center;
+      font-family: 'Crimson Text', serif;
+      font-size: 0.85rem;
+      color: var(--brown-light);
+      background: var(--parchment);
+    }
+    footer a {
+      color: var(--brown-mid);
+      text-decoration: none;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .banner-inner { animation: fadeUp 0.6s ease both; }
+    .league-card {
+      animation: fadeUp 0.5s ease both;
+    }
+    .league-card:nth-child(1) { animation-delay: 0.05s; }
+    .league-card:nth-child(2) { animation-delay: 0.10s; }
+    .league-card:nth-child(3) { animation-delay: 0.15s; }
+    .league-card:nth-child(4) { animation-delay: 0.20s; }
+    .league-card:nth-child(5) { animation-delay: 0.25s; }
+    .league-card:nth-child(6) { animation-delay: 0.30s; }
+    .league-card:nth-child(7) { animation-delay: 0.35s; }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- BANNER -->
+  <header class="banner">
+    <div class="banner-inner">
+      <p class="banner-eyebrow">Est. by the Gridiron Faithful</p>
+      <h1>Welcome to the<br/><span>FF Historian</span></h1>
+      <p class="banner-sub">The Official Archive of Fantasy Football Lore</p>
+      <div class="banner-divider"></div>
+    </div>
+  </header>
+
+  <div class="lace-row">— ✦ — ✦ — ✦ —</div>
+
+  <!-- MAIN -->
+  <main class="main">
+    <p class="section-label">Select Your League</p>
+
+    <div class="league-grid">
+
+      <a class="league-card" href="https://ffhistorian.com/2-way-insanity">
+        <div class="card-logo-bar">🏈</div>
+        <div class="card-body">
+          <p class="card-number">League I</p>
+          <p class="card-name">2 Way Insanity</p>
+          <span class="card-platform">Sleeper</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+
+      <a class="league-card" href="https://ffhistorian.com/2-way-insanity-part-2">
+        <div class="card-logo-bar">🏈</div>
+        <div class="card-body">
+          <p class="card-number">League II</p>
+          <p class="card-name">2 Way Insanity — Part 2</p>
+          <span class="card-platform">Sleeper</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+
+      <a class="league-card" href="https://ffhistorian.com/bb-lucky-number-14">
+        <div class="card-logo-bar">🏈</div>
+        <div class="card-body">
+          <p class="card-number">League III</p>
+          <p class="card-name">BB — Lucky Number 14</p>
+          <span class="card-platform">Sleeper</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+
+      <a class="league-card" href="https://ffhistorian.com/dynasty-1-0">
+        <div class="card-logo-bar">👑</div>
+        <div class="card-body">
+          <p class="card-number">League IV</p>
+          <p class="card-name">Dynasty 1.0</p>
+          <span class="card-platform">Sleeper</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+
+      <a class="league-card" href="https://ffhistorian.com/fugayzi">
+        <div class="card-logo-bar">🎭</div>
+        <div class="card-body">
+          <p class="card-number">League V</p>
+          <p class="card-name">Fugayzi Fugazi It's a Whazy It's a Woozy</p>
+          <span class="card-platform">Sleeper</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+
+      <a class="league-card" href="https://ffhistorian.com/late-round-music-league">
+        <div class="card-logo-bar">🎵</div>
+        <div class="card-body">
+          <p class="card-number">League VI</p>
+          <p class="card-name">Late Round Music League</p>
+          <span class="card-platform">Sleeper</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+
+      <a class="league-card" href="https://ffhistorian.com/ncfl">
+        <div class="card-logo-bar">🏆</div>
+        <div class="card-body">
+          <p class="card-number">League VII</p>
+          <p class="card-name">No Cap Football League</p>
+          <span class="card-platform">Sleeper</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+
+    </div>
+  </main>
+
+  <footer>
+    <p>ffhistorian.com &nbsp;·&nbsp; Built on <a href="https://sleeper.com">Sleeper</a> data &nbsp;·&nbsp; Powered by Cloudflare Pages &amp; Workers</p>
+  </footer>
+
+</div>
+</body>
+</html>
