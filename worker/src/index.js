@@ -171,7 +171,9 @@ export default {
       );
     }
 
-    // ── DRAFT PICKS FOR A LEAGUE ─────────────────────────
+    // ── DRAFT INFO + PICKS FOR A LEAGUE ──────────────────
+    // Returns { draft_order: {roster_id: slot}, picks: [...] }
+    // draft_order maps each roster_id to their original draft slot
     if (resource === "draft") {
       const cacheKey = `draft:${leagueId}`;
       const cached = await env.FF_CACHE.get(cacheKey);
@@ -184,12 +186,26 @@ export default {
         const draftsRes = await fetch(`${SLEEPER_BASE}/league/${leagueId}/drafts`);
         const drafts = await draftsRes.json();
         if (!drafts || drafts.length === 0) {
-          return new Response("[]", { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+          return new Response(JSON.stringify({ draft_order: {}, picks: [] }), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+          });
         }
-        const draftId = drafts[drafts.length - 1].draft_id;
+        // Use the most recent draft (rookie draft, not startup)
+        const draft = drafts[drafts.length - 1];
+        const draftId = draft.draft_id;
+
+        // draft.slot_to_roster_id maps slot number → roster_id
+        // We want the inverse: roster_id → slot number
+        const slotToRoster = draft.slot_to_roster_id || {};
+        const rosterToSlot = {};
+        Object.entries(slotToRoster).forEach(([slot, rosterId]) => {
+          rosterToSlot[rosterId] = parseInt(slot, 10);
+        });
+
         const picksRes = await fetch(`${SLEEPER_BASE}/draft/${draftId}/picks`);
         const picks = await picksRes.json();
-        const body = JSON.stringify(picks);
+
+        const body = JSON.stringify({ draft_order: rosterToSlot, picks });
         await env.FF_CACHE.put(cacheKey, body, { expirationTtl: TTL_OFFSEASON });
         return new Response(body, {
           headers: { "Content-Type": "application/json", "X-Cache": "MISS", "Access-Control-Allow-Origin": "*" },

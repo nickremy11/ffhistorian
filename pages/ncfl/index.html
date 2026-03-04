@@ -496,40 +496,53 @@ async function fetchPlayerMap() {
 }
 
 async function buildDraftPickMap() {
-  // Fetch all rookie/annual drafts keyed by season year
-  // Key format: "season:round:roster_id" → "2023 1.06 — Bijan Robinson (RB)"
-  // We skip the startup draft (2022) as pick slot notation doesn't apply
+  // Fetch rookie drafts (2023+) — startup draft (2022) uses different structure
+  // 
+  // The challenge: a traded pick's roster_id = original owner at time of trade,
+  // but by draft day the pick may have changed hands again. Sleeper records the
+  // FINAL owner's roster_id in the draft result, not the original.
+  //
+  // Solution: use draft_slot (stable, assigned at season start) as the bridge.
+  // draft_order maps roster_id → their original draft slot for that season.
+  // We build two maps:
+  //   draftPickMap["season:round:slot"]   → resolved pick string (for traded picks)
+  //   draftSlotMap["season:roster_id"]    → that roster's original draft slot
   const rookieDraftYears = Object.keys(LEAGUE_CONFIG.seasons)
     .filter(y => parseInt(y) >= 2023);
 
   for (const year of rookieDraftYears) {
     const lid = LEAGUE_CONFIG.seasons[year];
     try {
-      const picks = await fetch(`/api/league/${lid}/draft`).then(r => r.json());
-      if (!Array.isArray(picks) || picks.length === 0) continue;
+      const data = await fetch(`/api/league/${lid}/draft`).then(r => r.json());
+      if (!data || !Array.isArray(data.picks)) continue;
 
-      // Group picks by round to calculate slot number within each round
+      const { picks, draft_order } = data;
+      // draft_order: { roster_id → original_slot }
+      // Store so resolveDraftPick can look up a roster's slot
+      if (draft_order) {
+        Object.entries(draft_order).forEach(([rosterId, slot]) => {
+          draftPickMap[`slot:${year}:${rosterId}`] = slot;
+        });
+      }
+
+      // Group picks by round
       const picksByRound = {};
       picks.forEach(p => {
         if (!picksByRound[p.round]) picksByRound[p.round] = [];
         picksByRound[p.round].push(p);
       });
-
-      // Sort each round by pick_no so slot = position within that round
       Object.values(picksByRound).forEach(rnd => rnd.sort((a, b) => a.pick_no - b.pick_no));
 
+      // Key each pick by season:round:draft_slot
+      // draft_slot on the pick = the slot position used (may differ from original owner's slot if traded)
       picks.forEach(pick => {
-        const roundPicks = picksByRound[pick.round];
-        // slot = 1-indexed position within the round
-        const slotIndex = roundPicks.findIndex(p => p.pick_no === pick.pick_no) + 1;
-        const slot = `${pick.round}.${String(slotIndex).padStart(2, '0')}`;
+        const slotInRound = pick.draft_slot; // 1-based position within round
+        const slot = `${pick.round}.${String(slotInRound).padStart(2, '0')}`;
         const drafted = pick.player_id ? playerName(pick.player_id) : null;
-        // Key by season:round:roster_id — matches the draft_picks shape in trade transactions
-        const key = `${year}:${pick.round}:${pick.roster_id}`;
-        draftPickMap[key] = drafted
-          ? `${year} ${slot} — ${drafted}`
-          : `${year} ${slot}`;
+        const key = `${year}:${pick.round}:${slotInRound}`;
+        draftPickMap[key] = drafted ? `${year} ${slot} — ${drafted}` : `${year} ${slot}`;
       });
+
     } catch(e) {
       console.warn(`Draft picks fetch failed for ${year}:`, e.message);
     }
@@ -537,11 +550,22 @@ async function buildDraftPickMap() {
 }
 
 function resolveDraftPick(pick) {
-  // Trade draft_picks shape: { season, round, roster_id, owner_id, previous_owner_id }
-  // Match by season:round:roster_id — roster_id is the original owning roster
-  const key = `${pick.season}:${pick.round}:${pick.roster_id}`;
-  if (draftPickMap[key]) return draftPickMap[key];
-  // Draft hasn't happened yet (future pick) — show descriptive label
+  // Trade pick shape: { season, round, roster_id (original owner), owner_id, previous_owner_id }
+  //
+  // Step 1: look up the original owner's draft slot for that season
+  // (stored as draftPickMap["slot:season:roster_id"])
+  const originalSlot = draftPickMap[`slot:${pick.season}:${pick.roster_id}`];
+
+  if (originalSlot !== undefined) {
+    // Step 2: look up the pick at that slot in the actual draft
+    const key = `${pick.season}:${pick.round}:${originalSlot}`;
+    if (draftPickMap[key]) return draftPickMap[key];
+    // Draft hasn't happened yet — show slot-based label
+    const slotStr = `${pick.round}.${String(originalSlot).padStart(2, '0')}`;
+    return `${pick.season} ${slotStr}`;
+  }
+
+  // Fallback if draft_order wasn't available
   return `${pick.season} Round ${pick.round} Pick`;
 }
 
