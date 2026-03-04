@@ -91,6 +91,40 @@ export default {
       );
     }
 
+    // ── DRAFT PICKS FOR A LEAGUE ──────────────────────────
+    // Route: /api/league/:leagueId/draft
+    // First fetches the draft ID for the league, then gets all picks
+    if (resource === "draft") {
+      const cacheKey = `draft:${leagueId}`;
+      const cached = await env.FF_CACHE.get(cacheKey);
+      if (cached) {
+        return new Response(cached, {
+          headers: { "Content-Type": "application/json", "X-Cache": "HIT", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+      try {
+        // Get list of drafts for this league
+        const draftsRes = await fetch(`${SLEEPER_BASE}/league/${leagueId}/drafts`);
+        const drafts = await draftsRes.json();
+        if (!drafts || drafts.length === 0) {
+          return new Response("[]", { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+        }
+        // Use the first (startup) or most recent draft
+        const draftId = drafts[drafts.length - 1].draft_id;
+        const picksRes = await fetch(`${SLEEPER_BASE}/draft/${draftId}/picks`);
+        const picks = await picksRes.json();
+        const body = JSON.stringify(picks);
+        await env.FF_CACHE.put(cacheKey, body, { expirationTtl: TTL_OFFSEASON });
+        return new Response(body, {
+          headers: { "Content-Type": "application/json", "X-Cache": "MISS", "Access-Control-Allow-Origin": "*" },
+        });
+      } catch(e) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+    }
+
     // Parse path segments
     // /api/league/:leagueId/:resource[/:param]
     const segments = path.replace("/api/league/", "").split("/");

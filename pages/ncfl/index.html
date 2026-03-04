@@ -391,13 +391,54 @@ const LEAGUE_CONFIG = {
 const API_BASE = "/api/league";
 
 // ═══════════════════════════════════════════════════
-// TEAM NAME ALIASES
-// Maps any historical team name → canonical display name
-// Add entries here whenever an owner renames their team
+// FRANCHISE CONTINUITY CONFIG
+//
+// OWNERSHIP_MERGES: when one owner took over another's
+// roster mid-history. Stats are merged under canonicalUserId.
+// seasonTeamNames lets you display the correct team name
+// per season rather than always using the current name.
+//
+// TEAM_NAME_ALIASES: simple renames where the same user_id
+// just changed their team name across seasons.
 // ═══════════════════════════════════════════════════
+const OWNERSHIP_MERGES = [
+  {
+    // tantan1 (Arlington XL Boys) → Bsmitty (Henrico Havoc Hogs)
+    // Bsmitty took over the same roster in 2024
+    legacyUserId:    "834619940182032384",   // replace with tantan1's actual Sleeper user_id
+    canonicalUserId: "1007997964816330752",   // replace with Bsmitty's actual Sleeper user_id
+    seasonTeamNames: {
+      // Display name per season — uses team name at the time
+      "2022": "Arlington XL Boys",
+      "2023": "Arlington XL Boys",
+      "2024": "Henrico Havoc Hogs",
+      "2025": "Henrico Havoc Hogs",
+    },
+  },
+];
+
 const TEAM_NAME_ALIASES = {
-  "Arlington XL Boys": "Henrico Havoc Hogs",
+  // Simple renames (same user_id, different team name)
+  // "Old Name": "New Name",
 };
+
+// Returns the canonical user_id for any user (merges legacy owners)
+function canonicalUserId(uid) {
+  const merge = OWNERSHIP_MERGES.find(m => m.legacyUserId === uid);
+  return merge ? merge.canonicalUserId : uid;
+}
+
+// Returns the display name for a user in a given season
+function displayNameForSeason(uid, year) {
+  // Check if this uid is a legacy owner with a season-specific name
+  const merge = OWNERSHIP_MERGES.find(m => m.legacyUserId === uid || m.canonicalUserId === uid);
+  if (merge && merge.seasonTeamNames[year]) {
+    return merge.seasonTeamNames[year];
+  }
+  // Fall back to ownerMap display name with alias applied
+  const raw = ownerMap[canonicalUserId(uid)]?.display_name || ownerMap[uid]?.display_name || uid;
+  return TEAM_NAME_ALIASES[raw] || raw;
+}
 
 function canonicalName(name) {
   return TEAM_NAME_ALIASES[name] || name;
@@ -410,6 +451,7 @@ let allSeasonData = {};   // { year: { rosters, users, matchupWeeks, bracketData
 let ownerMap = {};        // { user_id: { display_name, avatar } }
 let allOwnerIds = [];
 let playerMap = {};       // { player_id: { full_name, position, team } }
+let draftPickMap = {};    // { "leagueId:season:round:rosterId": "1.06 — Patrick Mahomes (QB)" }
 
 // ═══════════════════════════════════════════════════
 // INIT
@@ -421,6 +463,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     fetchAllSeasons(),
     fetchPlayerMap(),
   ]);
+  // Build draft pick map after seasons are loaded (needs league IDs + roster maps)
+  await buildDraftPickMap();
   buildOwnerDropdowns();
   loadStandings("alltime");
 });
@@ -449,6 +493,33 @@ async function fetchPlayerMap() {
   } catch (e) {
     console.warn("Could not load player map:", e.message);
   }
+}
+
+async function buildDraftPickMap() {
+  for (const [year, sd] of Object.entries(allSeasonData)) {
+    const lid = LEAGUE_CONFIG.seasons[year];
+    try {
+      const picks = await fetch(`/api/league/${lid}/draft`).then(r => r.json());
+      if (!Array.isArray(picks)) continue;
+      picks.forEach(pick => {
+        // Key: leagueId:season:round:roster_id of the team that originally owned the pick
+        const key = `${lid}:${year}:${pick.round}:${pick.roster_id}`;
+        const slot = `${pick.round}.${String(pick.pick_no % (picks.filter(p=>p.round===pick.round).length) || picks.filter(p=>p.round===pick.round).length).padStart(2,'0')}`;
+        const drafted = pick.player_id ? playerName(pick.player_id) : "Unknown";
+        draftPickMap[key] = `${year} ${slot} — ${drafted}`;
+      });
+    } catch(e) {
+      console.warn(`Draft picks fetch failed for ${year}:`, e.message);
+    }
+  }
+}
+
+function resolveDraftPick(pick, leagueId) {
+  // pick has: season, round, roster_id (original owner), owner_id (new owner after trade)
+  const key = `${leagueId}:${pick.season}:${pick.round}:${pick.roster_id}`;
+  if (draftPickMap[key]) return draftPickMap[key];
+  // Draft hasn't happened yet — just show round
+  return `${pick.season} Round ${pick.round} Pick`;
 }
 
 function playerName(playerId) {
@@ -480,14 +551,18 @@ async function fetchAllSeasons() {
 
       users.forEach(u => {
         const rawName = u.metadata?.team_name || u.display_name || u.user_id;
-        if (!usersSeen[u.user_id]) {
-          usersSeen[u.user_id] = {
+        const cuid = canonicalUserId(u.user_id);
+        // Always store under the canonical user_id so legacy owners merge in
+        if (!usersSeen[cuid]) {
+          usersSeen[cuid] = {
             display_name: canonicalName(rawName),
             avatar: u.avatar,
           };
         } else {
-          // Re-apply canonical name in case a later season has the old name
-          usersSeen[u.user_id].display_name = canonicalName(rawName);
+          // For the canonical owner, always keep their own name (not the legacy name)
+          if (cuid === u.user_id) {
+            usersSeen[cuid].display_name = canonicalName(rawName);
+          }
         }
       });
 
@@ -538,27 +613,30 @@ function loadStandings(year, btn) {
     if (!sd) return;
 
     sd.rosters.forEach(r => {
-      const uid = r.owner_id;
-      if (!uid) return;
-      if (!records[uid]) records[uid] = { wins: 0, losses: 0, pf: 0, pa: 0, championships: 0 };
+      const rawUid = r.owner_id;
+      if (!rawUid) return;
+      // Merge legacy owners into canonical franchise
+      const uid = canonicalUserId(rawUid);
+      if (!records[uid]) records[uid] = { wins: 0, losses: 0, pf: 0, pa: 0, championships: 0, seasonNames: {} };
       records[uid].wins   += (r.settings?.wins || 0);
       records[uid].losses += (r.settings?.losses || 0);
-      // Sleeper stores fpts and fpts_decimal separately
       const pf = (r.settings?.fpts || 0) + (r.settings?.fpts_decimal || 0) / 100;
       const pa = (r.settings?.fpts_against || 0) + (r.settings?.fpts_against_decimal || 0) / 100;
       records[uid].pf += pf;
       records[uid].pa += pa;
+      // Store per-season team name for individual year display
+      records[uid].seasonNames[yr] = displayNameForSeason(rawUid, yr);
     });
 
-    // Determine champion — winners bracket round 3 = championship game
-    if (Array.isArray(sd.bracketData)) {
-      const finals = sd.bracketData.filter(m => m.r === 3);
-      finals.forEach(m => {
-        if (m.w) {
-          const champUid = sd.rosterUserMap[m.w];
-          if (champUid && records[champUid]) records[champUid].championships += 1;
-        }
-      });
+    // Determine champion — find the highest round in the bracket with a winner
+    // This avoids hardcoding round numbers which vary by league size
+    if (Array.isArray(sd.bracketData) && sd.bracketData.length > 0) {
+      const maxRound = Math.max(...sd.bracketData.map(m => m.r || 0));
+      const champMatch = sd.bracketData.find(m => m.r === maxRound && m.w);
+      if (champMatch) {
+        const champUid = sd.rosterUserMap[champMatch.w];
+        if (champUid && records[champUid]) records[champUid].championships += 1;
+      }
     }
   });
 
@@ -583,17 +661,21 @@ function loadStandings(year, btn) {
         <tbody>`;
 
   sorted.forEach(([uid, rec], i) => {
-    const name = ownerMap[uid]?.display_name || uid;
+    // For single-year view use the season-specific team name; for all-time use canonical name
+    const name = year !== "alltime" && rec.seasonNames?.[year]
+      ? rec.seasonNames[year]
+      : (ownerMap[uid]?.display_name || uid);
     const total = (rec.wins + rec.losses) || 1;
     const pct = (rec.wins / total * 100).toFixed(1);
     let badge = `<span class="rank-badge">${i + 1}</span>`;
     if (i === 0) badge = `<span class="rank-badge gold">1</span>`;
     if (i === 1) badge = `<span class="rank-badge silver">2</span>`;
     if (i === 2) badge = `<span class="rank-badge bronze">3</span>`;
-    const champ = rec.championships > 0 ? `<span class="champ-tag">🏆 ×${rec.championships}</span>` : "";
+    // Show trophy next to name for champion — both in all-time and individual year views
+    const champ = rec.championships > 0 ? `<span class="champ-tag">🏆${showTitles && rec.championships > 1 ? " ×" + rec.championships : ""}</span>` : "";
     html += `
       <tr>
-        <td>${badge}${name}${showTitles ? champ : ""}</td>
+        <td>${badge}${name}${champ}</td>
         <td>${rec.wins}</td>
         <td>${rec.losses}</td>
         <td class="win-pct">${pct}%</td>
@@ -645,8 +727,11 @@ function loadH2H() {
   let w1 = 0, w2 = 0, totalPF1 = 0, totalPF2 = 0;
 
   Object.entries(allSeasonData).sort().forEach(([year, sd]) => {
-    const r1 = sd.rosters.find(r => r.owner_id === uid1);
-    const r2 = sd.rosters.find(r => r.owner_id === uid2);
+    // Find rosters accounting for ownership merges (legacy user_id may own roster in early seasons)
+    const uid1Ids = [uid1, ...OWNERSHIP_MERGES.filter(m => m.canonicalUserId === uid1).map(m => m.legacyUserId)];
+    const uid2Ids = [uid2, ...OWNERSHIP_MERGES.filter(m => m.canonicalUserId === uid2).map(m => m.legacyUserId)];
+    const r1 = sd.rosters.find(r => uid1Ids.includes(r.owner_id));
+    const r2 = sd.rosters.find(r => uid2Ids.includes(r.owner_id));
     if (!r1 || !r2) return;
 
     sd.matchupWeeks.forEach((weekMatchups, weekIdx) => {
@@ -749,8 +834,11 @@ async function loadTrades() {
   const foundTrades = [];
 
   for (const [year, sd] of Object.entries(allSeasonData)) {
-    const r1 = sd.rosters.find(r => r.owner_id === uid1);
-    const r2 = sd.rosters.find(r => r.owner_id === uid2);
+    // Account for ownership merges when finding rosters
+    const uid1Ids = [uid1, ...OWNERSHIP_MERGES.filter(m => m.canonicalUserId === uid1).map(m => m.legacyUserId)];
+    const uid2Ids = [uid2, ...OWNERSHIP_MERGES.filter(m => m.canonicalUserId === uid2).map(m => m.legacyUserId)];
+    const r1 = sd.rosters.find(r => uid1Ids.includes(r.owner_id));
+    const r2 = sd.rosters.find(r => uid2Ids.includes(r.owner_id));
     if (!r1 || !r2) continue;
 
     const lid = LEAGUE_CONFIG.seasons[year];
@@ -787,8 +875,9 @@ async function loadTrades() {
     // What each side received
     const adds1 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r1id).map(([pid]) => playerName(pid));
     const adds2 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r2id).map(([pid]) => playerName(pid));
-    const picks1 = (tx.draft_picks || []).filter(p => p.owner_id === t.r1id).map(p => `${p.season} Round ${p.round} Pick`);
-    const picks2 = (tx.draft_picks || []).filter(p => p.owner_id === t.r2id).map(p => `${p.season} Round ${p.round} Pick`);
+    const lid = LEAGUE_CONFIG.seasons[t.year];
+    const picks1 = (tx.draft_picks || []).filter(p => p.owner_id === t.r1id).map(p => resolveDraftPick(p, lid));
+    const picks2 = (tx.draft_picks || []).filter(p => p.owner_id === t.r2id).map(p => resolveDraftPick(p, lid));
 
     const assets1 = [...adds1, ...picks1];
     const assets2 = [...adds2, ...picks2];
