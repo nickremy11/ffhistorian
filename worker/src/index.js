@@ -183,27 +183,46 @@ export default {
         });
       }
       try {
-        const draftsRes = await fetch(`${SLEEPER_BASE}/league/${leagueId}/drafts`);
-        const drafts = await draftsRes.json();
-        if (!drafts || drafts.length === 0) {
+        // Direct draft ID lookup — keyed by league ID
+        const DRAFT_IDS = {
+          "917118347102236672":  "917118347102236673",   // 2023
+          "1050188337924902912": "1050188337924902913",  // 2024
+          "1180232430068178944": "1180232430068178945",  // 2025
+        };
+
+        const draftId = DRAFT_IDS[leagueId];
+        if (!draftId) {
+          // No rookie draft for this league (2022 startup or 2026 future)
           return new Response(JSON.stringify({ draft_order: {}, picks: [] }), {
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
           });
         }
-        // Use the most recent draft (rookie draft, not startup)
-        const draft = drafts[drafts.length - 1];
-        const draftId = draft.draft_id;
 
-        // draft.slot_to_roster_id maps slot number → roster_id
-        // We want the inverse: roster_id → slot number
-        const slotToRoster = draft.slot_to_roster_id || {};
-        const rosterToSlot = {};
-        Object.entries(slotToRoster).forEach(([slot, rosterId]) => {
-          rosterToSlot[rosterId] = parseInt(slot, 10);
+        // Fetch draft metadata and picks in parallel
+        const [metaRes, picksRes] = await Promise.all([
+          fetch(`${SLEEPER_BASE}/draft/${draftId}`),
+          fetch(`${SLEEPER_BASE}/draft/${draftId}/picks`),
+        ]);
+        const [draftMeta, picks] = await Promise.all([metaRes.json(), picksRes.json()]);
+
+        // draft_order on the metadata maps user_id → draft_slot (original assignment, never changes)
+        // We need roster_id → draft_slot, so we cross-reference with picks to get user→roster mapping
+        const userToSlot = draftMeta.draft_order || {};
+
+        // Build user_id → roster_id map from picks (picked_by = user_id, roster_id = their roster)
+        const userToRoster = {};
+        picks.forEach(p => {
+          if (p.picked_by && p.roster_id && !userToRoster[p.picked_by]) {
+            userToRoster[p.picked_by] = p.roster_id;
+          }
         });
 
-        const picksRes = await fetch(`${SLEEPER_BASE}/draft/${draftId}/picks`);
-        const picks = await picksRes.json();
+        // Final map: roster_id → original draft slot
+        const rosterToSlot = {};
+        Object.entries(userToSlot).forEach(([userId, slot]) => {
+          const rosterId = userToRoster[userId];
+          if (rosterId !== undefined) rosterToSlot[rosterId] = slot;
+        });
 
         const body = JSON.stringify({ draft_order: rosterToSlot, picks });
         await env.FF_CACHE.put(cacheKey, body, { expirationTtl: TTL_OFFSEASON });
