@@ -391,18 +391,36 @@ const LEAGUE_CONFIG = {
 const API_BASE = "/api/league";
 
 // ═══════════════════════════════════════════════════
+// TEAM NAME ALIASES
+// Maps any historical team name → canonical display name
+// Add entries here whenever an owner renames their team
+// ═══════════════════════════════════════════════════
+const TEAM_NAME_ALIASES = {
+  "Arlington XL Boys": "Henrico Havoc Hogs",
+};
+
+function canonicalName(name) {
+  return TEAM_NAME_ALIASES[name] || name;
+}
+
+// ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
 let allSeasonData = {};   // { year: { rosters, users, matchupWeeks, bracketData, rosterUserMap } }
 let ownerMap = {};        // { user_id: { display_name, avatar } }
 let allOwnerIds = [];
+let playerMap = {};       // { player_id: { full_name, position, team } }
 
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", async () => {
   buildYearPills();
-  await fetchAllSeasons();
+  // Fetch player map and season data in parallel
+  const [, ] = await Promise.all([
+    fetchAllSeasons(),
+    fetchPlayerMap(),
+  ]);
   buildOwnerDropdowns();
   loadStandings("alltime");
 });
@@ -422,6 +440,22 @@ async function apiFetch(path) {
   const res = await fetch(API_BASE + path);
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
   return res.json();
+}
+
+async function fetchPlayerMap() {
+  try {
+    const data = await fetch("/api/players").then(r => r.json());
+    playerMap = data;
+  } catch (e) {
+    console.warn("Could not load player map:", e.message);
+  }
+}
+
+function playerName(playerId) {
+  const p = playerMap[playerId];
+  if (!p) return `Player #${playerId}`;
+  const pos = p.position ? ` (${p.position})` : "";
+  return `${p.full_name || playerId}${pos}`;
 }
 
 async function fetchAllSeasons() {
@@ -445,11 +479,15 @@ async function fetchAllSeasons() {
       );
 
       users.forEach(u => {
+        const rawName = u.metadata?.team_name || u.display_name || u.user_id;
         if (!usersSeen[u.user_id]) {
           usersSeen[u.user_id] = {
-            display_name: u.metadata?.team_name || u.display_name || u.user_id,
+            display_name: canonicalName(rawName),
             avatar: u.avatar,
           };
+        } else {
+          // Re-apply canonical name in case a later season has the old name
+          usersSeen[u.user_id].display_name = canonicalName(rawName);
         }
       });
 
@@ -747,8 +785,8 @@ async function loadTrades() {
       : t.year;
 
     // What each side received
-    const adds1 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r1id).map(([pid]) => pid);
-    const adds2 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r2id).map(([pid]) => pid);
+    const adds1 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r1id).map(([pid]) => playerName(pid));
+    const adds2 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r2id).map(([pid]) => playerName(pid));
     const picks1 = (tx.draft_picks || []).filter(p => p.owner_id === t.r1id).map(p => `${p.season} Round ${p.round} Pick`);
     const picks2 = (tx.draft_picks || []).filter(p => p.owner_id === t.r2id).map(p => `${p.season} Round ${p.round} Pick`);
 

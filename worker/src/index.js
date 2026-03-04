@@ -76,9 +76,19 @@ export default {
       });
     }
 
-    // Only handle GET /api/league/...
-    if (!path.startsWith("/api/league/")) {
+    // Only handle GET /api/league/... or /api/players
+    if (!path.startsWith("/api/league/") && path !== "/api/players") {
       return new Response("Not found", { status: 404 });
+    }
+
+    // ── NFL PLAYERS LOOKUP ────────────────────────────────
+    if (path === "/api/players") {
+      return fetchWithCache(
+        env,
+        `players:nfl`,
+        `${SLEEPER_BASE}/players/nfl`,
+        TTL_OFFSEASON
+      );
     }
 
     // Parse path segments
