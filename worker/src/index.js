@@ -205,22 +205,32 @@ export default {
         ]);
         const [draftMeta, picks] = await Promise.all([metaRes.json(), picksRes.json()]);
 
-        // draft_order on the metadata maps user_id → draft_slot (original assignment, never changes)
-        // We need roster_id → draft_slot, so we cross-reference with picks to get user→roster mapping
+        // draft_order maps user_id → original draft slot (stable, never changes)
         const userToSlot = draftMeta.draft_order || {};
 
-        // Build user_id → roster_id map from picks (picked_by = user_id, roster_id = their roster)
+        // Build user_id → roster_id from ALL picks across all rounds
+        // (using all rounds ensures we catch users who traded away their R1 pick)
         const userToRoster = {};
         picks.forEach(p => {
-          if (p.picked_by && p.roster_id && !userToRoster[p.picked_by]) {
+          if (p.picked_by && p.roster_id !== undefined && !userToRoster[p.picked_by]) {
             userToRoster[p.picked_by] = p.roster_id;
           }
         });
 
+        // Also fetch league rosters to catch any user who didn't pick at all
+        // (traded away all their picks) — map owner_id → roster_id directly
+        let rosterOwners = {};
+        try {
+          const rostersRes = await fetch(`${SLEEPER_BASE}/league/${leagueId}/rosters`);
+          const rosters = await rostersRes.json();
+          rosters.forEach(r => { if (r.owner_id) rosterOwners[r.owner_id] = r.roster_id; });
+        } catch(e) { /* non-fatal */ }
+
         // Final map: roster_id → original draft slot
+        // Prefer picks-based mapping, fall back to roster owner mapping
         const rosterToSlot = {};
         Object.entries(userToSlot).forEach(([userId, slot]) => {
-          const rosterId = userToRoster[userId];
+          const rosterId = userToRoster[userId] ?? rosterOwners[userId];
           if (rosterId !== undefined) rosterToSlot[rosterId] = slot;
         });
 
