@@ -203,16 +203,12 @@ export default {
         });
       }
       try {
-        // Direct draft ID lookup — keyed by league ID
-        const DRAFT_IDS = {
-          "917118347102236672":  "917118347102236673",   // 2023
-          "1050188337924902912": "1050188337924902913",  // 2024
-          "1180232430068178944": "1180232430068178945",  // 2025
-        };
-
-        const draftId = DRAFT_IDS[leagueId];
+        // Draft ID passed as query param from the page config (?draftId=xxx)
+        // This allows any league to resolve draft picks without hardcoding IDs in the Worker
+        const url = new URL(request.url);
+        const draftId = url.searchParams.get("draftId");
         if (!draftId) {
-          // No rookie draft for this league (2022 startup or 2026 future)
+          // No draft ID provided — no rookie draft data available
           return new Response(JSON.stringify({ draft_order: {}, picks: [] }), {
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
           });

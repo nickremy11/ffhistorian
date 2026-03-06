@@ -544,7 +544,11 @@ async function buildDraftPickMap() {
   for (const year of rookieDraftYears) {
     const lid = LEAGUE_CONFIG.seasons[year];
     try {
-      const data = await fetch(`/api/league/${lid}/draft`).then(r => r.json());
+      const draftId = LEAGUE_CONFIG.draftIds?.[year];
+      const draftUrl = draftId
+        ? `/api/league/${lid}/draft?draftId=${draftId}`
+        : `/api/league/${lid}/draft`;
+      const data = await fetch(draftUrl).then(r => r.json());
       if (!data || !Array.isArray(data.picks)) continue;
 
       const { picks, draft_order } = data;
