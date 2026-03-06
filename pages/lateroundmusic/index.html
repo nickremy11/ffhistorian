@@ -430,6 +430,7 @@ const LEAGUE_CONFIG = {
   draftIds: {
     2025: "1180356292537638913",
   }
+  hasDivisions: false,
 };
 
 // All Worker API calls go through your own domain — no direct Sleeper calls from the browser
@@ -881,12 +882,12 @@ function renderStandings(year, sortCol, sortDir) {
     { key: "diff",       label: "+/−",         sortable: true  },
     ...(showAllTime ? [
       { key: "playoffApps", label: "Playoffs", sortable: true  },
-      { key: "divTitles",   label: "Div",      sortable: true  },
+      { key: "divTitles", label: "Div", sortable: true, hidden: !LEAGUE_CONFIG.hasDivisions },
       { key: "finalsApps",  label: "Finals",   sortable: true  },
     ] : []),
   ];
 
-  const thHTML = cols.map(c => {
+  const thHTML = cols.filter(c => !c.hidden).map(c => {
     if (!c.sortable) return `<th>${c.label}</th>`;
     const active = col === c.key;
     const cls = active ? (dir === -1 ? "sort-desc" : "sort-asc") : "";
@@ -937,7 +938,7 @@ function renderStandings(year, sortCol, sortDir) {
       <td>${diffVal}</td>
       ${showAllTime ? `
       <td>${rec.playoffApps || "—"}</td>
-      <td>${rec.divTitles || "—"}</td>
+      ${LEAGUE_CONFIG.hasDivisions ? `<td>${rec.divTitles || "—"}</td>` : ""}
       <td>${rec.finalsApps || "—"}</td>` : ""}
     </tr>`;
   });
