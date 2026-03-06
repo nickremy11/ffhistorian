@@ -628,10 +628,12 @@ async function fetchAllSeasons() {
   for (const year of years) {
     const lid = LEAGUE_CONFIG.seasons[year];
     try {
-      const [rosters, users, bracketData] = await Promise.all([
+      const [rosters, users, bracketData, loserBracket, leagueInfo] = await Promise.all([
         apiFetch(`/${lid}/rosters`),
         apiFetch(`/${lid}/users`),
         apiFetch(`/${lid}/winners_bracket`),
+        apiFetch(`/${lid}/losers_bracket`).catch(() => []),
+        apiFetch(`/${lid}/info`).catch(() => ({})),
       ]);
 
       // Fetch all 18 weeks of matchups in parallel
@@ -661,7 +663,7 @@ async function fetchAllSeasons() {
       const rosterUserMap = {};
       rosters.forEach(r => { rosterUserMap[r.roster_id] = r.owner_id; });
 
-      allSeasonData[year] = { rosters, users, matchupWeeks, bracketData, rosterUserMap };
+      allSeasonData[year] = { rosters, users, matchupWeeks, bracketData, loserBracket, leagueInfo, rosterUserMap };
     } catch (e) {
       console.warn(`Could not load season ${year}:`, e.message);
     }
@@ -736,15 +738,75 @@ function renderStandings(year, sortCol, sortDir) {
   }
 
   const records = {};
+  // Track which years each uid was division champ, runner-up, 3rd place
+  const yearDivChamps = {}; // yr → Set of uids
+  const yearRunnerUp  = {}; // yr → uid
+  const yearThird     = {}; // yr → uid
 
   years.forEach(yr => {
     const sd = allSeasonData[yr];
     if (!sd) return;
+
+    // ── Division titles ──────────────────────────────────
+    // Sleeper stores division as roster.settings.division (1-indexed)
+    // Division winner = best record in each division group
+    const divGroups = {};
+    sd.rosters.forEach(r => {
+      const div = r.settings?.division;
+      if (!div) return;
+      if (!divGroups[div]) divGroups[div] = [];
+      divGroups[div].push(r);
+    });
+    const divChampRosters = new Set();
+    Object.values(divGroups).forEach(group => {
+      if (group.length === 0) return;
+      const winner = group.reduce((best, r) => {
+        const bW = best.settings?.wins || 0, bPF = (best.settings?.fpts || 0) + (best.settings?.fpts_decimal || 0) / 100;
+        const rW = r.settings?.wins || 0, rPF = (r.settings?.fpts || 0) + (r.settings?.fpts_decimal || 0) / 100;
+        return (rW > bW || (rW === bW && rPF > bPF)) ? r : best;
+      });
+      divChampRosters.add(winner.roster_id);
+    });
+    yearDivChamps[yr] = new Set([...divChampRosters].map(rid => canonicalUserId(sd.rosterUserMap[rid])).filter(Boolean));
+
+    // ── Playoff results from winners bracket ─────────────
+    if (Array.isArray(sd.bracketData) && sd.bracketData.length > 0) {
+      const maxRound = Math.max(...sd.bracketData.map(m => m.r || 0));
+      const champMatch = sd.bracketData.find(m => m.r === maxRound && m.w);
+      if (champMatch) {
+        // Runner-up = loser of championship game
+        const ruRid = champMatch.l;
+        if (ruRid) yearRunnerUp[yr] = canonicalUserId(sd.rosterUserMap[ruRid]);
+      }
+    }
+
+    // ── 3rd place from loser bracket ─────────────────────
+    if (Array.isArray(sd.loserBracket) && sd.loserBracket.length > 0) {
+      // The 3rd place game is the highest round in the loser bracket with a winner
+      // BUT Sleeper's "loser bracket" is actually the consolation bracket
+      // 3rd place = winner of the final consolation match (highest round, winner's bracket losers)
+      // We look for the match that determines 3rd — typically round 2 or 3 of winners bracket losers
+      // Strategy: find the match whose winner is NOT the toilet bowl winner
+      // Simplest: highest round match with a winner in the losers bracket
+      const lbMaxRound = Math.max(...sd.loserBracket.map(m => m.r || 0));
+      // Find all matches at max round
+      const lbFinals = sd.loserBracket.filter(m => m.r === lbMaxRound && m.w);
+      // The 3rd place game is the one at the top of the bracket (p=3 if Sleeper sets it)
+      const thirdMatch = lbFinals.find(m => m.p === 3) || lbFinals[0];
+      if (thirdMatch?.w) yearThird[yr] = canonicalUserId(sd.rosterUserMap[thirdMatch.w]);
+    }
+
     sd.rosters.forEach(r => {
       const rawUid = r.owner_id;
       if (!rawUid) return;
       const uid = canonicalUserId(rawUid);
-      if (!records[uid]) records[uid] = { wins: 0, losses: 0, pf: 0, pa: 0, championships: 0, seasonNames: {} };
+      if (!records[uid]) records[uid] = {
+        wins: 0, losses: 0, pf: 0, pa: 0,
+        championships: 0, runnerUps: 0, thirdPlaces: 0,
+        divTitles: 0, finalsApps: 0,
+        playoffW: 0, playoffL: 0,
+        seasonNames: {}, seasonAwards: {}
+      };
       records[uid].wins   += (r.settings?.wins || 0);
       records[uid].losses += (r.settings?.losses || 0);
       const pf = (r.settings?.fpts || 0) + (r.settings?.fpts_decimal || 0) / 100;
@@ -752,15 +814,50 @@ function renderStandings(year, sortCol, sortDir) {
       records[uid].pf += pf;
       records[uid].pa += pa;
       records[uid].seasonNames[yr] = displayNameForSeason(rawUid, yr);
+      records[uid].seasonAwards[yr] = [];
     });
+
+    // ── Assign awards ─────────────────────────────────────
     if (Array.isArray(sd.bracketData) && sd.bracketData.length > 0) {
       const maxRound = Math.max(...sd.bracketData.map(m => m.r || 0));
       const champMatch = sd.bracketData.find(m => m.r === maxRound && m.w);
-      if (champMatch) {
+      if (champMatch?.w) {
         const champUid = canonicalUserId(sd.rosterUserMap[champMatch.w]);
-        if (champUid && records[champUid]) records[champUid].championships += 1;
+        if (champUid && records[champUid]) {
+          records[champUid].championships += 1;
+          records[champUid].finalsApps    += 1;
+          records[champUid].seasonAwards[yr]?.push("champ");
+        }
+        const ruUid = yearRunnerUp[yr];
+        if (ruUid && records[ruUid]) {
+          records[ruUid].runnerUps  += 1;
+          records[ruUid].finalsApps += 1;
+          records[ruUid].seasonAwards[yr]?.push("runnerup");
+        }
       }
+
+      // Playoff W/L — count bracket matches
+      sd.bracketData.forEach(m => {
+        if (!m.w || !m.l) return;
+        const wUid = canonicalUserId(sd.rosterUserMap[m.w]);
+        const lUid = canonicalUserId(sd.rosterUserMap[m.l]);
+        if (wUid && records[wUid]) records[wUid].playoffW += 1;
+        if (lUid && records[lUid]) records[lUid].playoffL += 1;
+      });
     }
+
+    const thirdUid = yearThird[yr];
+    if (thirdUid && records[thirdUid]) {
+      records[thirdUid].thirdPlaces += 1;
+      records[thirdUid].seasonAwards[yr]?.push("third");
+    }
+
+    yearDivChamps[yr]?.forEach(uid => {
+      if (records[uid]) {
+        records[uid].divTitles += 1;
+        records[uid].seasonAwards[yr]?.push("div");
+      }
+    });
   });
 
   // Compute all-play and attach to records
@@ -783,17 +880,24 @@ function renderStandings(year, sortCol, sortDir) {
     return (vb - va) * dir * -1;
   });
 
+  const showAllTime = year === "alltime";
   const cols = [
-    { key: "name",  label: "Owner",    sortable: false },
-    { key: "wins",  label: "W",        sortable: true  },
-    { key: "losses",label: "L",        sortable: true  },
-    { key: "wpPct", label: "Win%",     sortable: true  },
-    { key: "pf",    label: "PF",       sortable: true  },
-    { key: "pa",    label: "PA",       sortable: true  },
-    { key: "apW",   label: "AP W",     sortable: true  },
-    { key: "apL",   label: "AP L",     sortable: true  },
-    { key: "apPct", label: "AP Win%",  sortable: true  },
-    { key: "diff",  label: "+/−",      sortable: true  },
+    { key: "name",       label: "Owner",       sortable: false },
+    { key: "wins",       label: "W",           sortable: true  },
+    { key: "losses",     label: "L",           sortable: true  },
+    { key: "wpPct",      label: "Win%",        sortable: true  },
+    { key: "pf",         label: "PF",          sortable: true  },
+    { key: "pa",         label: "PA",          sortable: true  },
+    { key: "apW",        label: "AP W",        sortable: true  },
+    { key: "apL",        label: "AP L",        sortable: true  },
+    { key: "apPct",      label: "AP Win%",     sortable: true  },
+    { key: "diff",       label: "+/−",         sortable: true  },
+    ...(showAllTime ? [
+      { key: "divTitles",  label: "Div",       sortable: true  },
+      { key: "finalsApps", label: "Finals",    sortable: true  },
+      { key: "playoffW",   label: "PO W",      sortable: true  },
+      { key: "playoffL",   label: "PO L",      sortable: true  },
+    ] : []),
   ];
 
   const thHTML = cols.map(c => {
@@ -814,12 +918,28 @@ function renderStandings(year, sortCol, sortDir) {
     if (i === 0) badge = `<span class="rank-badge gold">1</span>`;
     if (i === 1) badge = `<span class="rank-badge silver">2</span>`;
     if (i === 2) badge = `<span class="rank-badge bronze">3</span>`;
-    const champ = rec.championships > 0 ? `<span class="champ-tag">🏆${rec.championships > 1 ? " ×" + rec.championships : ""}</span>` : "";
+
+    // Awards shown next to name
+    let awards = "";
+    if (showAllTime) {
+      if (rec.championships > 0) awards += `<span class="champ-tag" title="League Champion">🏆${rec.championships > 1 ? "×"+rec.championships : ""}</span>`;
+      if (rec.runnerUps > 0)     awards += `<span class="champ-tag" title="Runner-up" style="filter:grayscale(0.3)">🥈${rec.runnerUps > 1 ? "×"+rec.runnerUps : ""}</span>`;
+      if (rec.thirdPlaces > 0)   awards += `<span class="champ-tag" title="3rd Place" style="filter:grayscale(0.5)">🥉${rec.thirdPlaces > 1 ? "×"+rec.thirdPlaces : ""}</span>`;
+    } else {
+      // Individual year — show award icons inline with name
+      const awards_yr = rec.seasonAwards?.[year] || [];
+      if (awards_yr.includes("champ"))    awards += `<span class="champ-tag" title="League Champion">🏆</span>`;
+      if (awards_yr.includes("runnerup")) awards += `<span class="champ-tag" title="Runner-up">🥈</span>`;
+      if (awards_yr.includes("third"))    awards += `<span class="champ-tag" title="3rd Place">🥉</span>`;
+      if (awards_yr.includes("div"))      awards += `<span class="champ-tag" title="Division Champion" style="background:var(--brown-mid)">🏅</span>`;
+    }
+
     const diffVal = rec.diff >= 0
       ? `<span style="color:var(--green-light)">+${(rec.diff*100).toFixed(1)}%</span>`
       : `<span style="color:var(--red)">${(rec.diff*100).toFixed(1)}%</span>`;
+
     html += `<tr>
-      <td>${badge}${name}${champ}</td>
+      <td>${badge}${name}${awards}</td>
       <td>${rec.wins}</td>
       <td>${rec.losses}</td>
       <td class="win-pct">${(rec.wpPct*100).toFixed(1)}%</td>
@@ -829,6 +949,11 @@ function renderStandings(year, sortCol, sortDir) {
       <td>${rec.apL}</td>
       <td class="win-pct">${(rec.apPct*100).toFixed(1)}%</td>
       <td>${diffVal}</td>
+      ${showAllTime ? `
+      <td>${rec.divTitles || "—"}</td>
+      <td>${rec.finalsApps || "—"}</td>
+      <td>${rec.playoffW || 0}</td>
+      <td>${rec.playoffL || 0}</td>` : ""}
     </tr>`;
   });
 
@@ -1150,16 +1275,32 @@ function loadRecords() {
     streakData[uid] = { maxWin, maxLoss, maxWinCtx, maxLossCtx, name: ownerMap[uid]?.display_name || uid };
   });
 
-  // Top 3 win streaks
+  // Top 5 win streaks
   const topWinStreaks = Object.values(streakData)
-    .sort((a, b) => b.maxWin - a.maxWin).slice(0, 3);
+    .sort((a, b) => b.maxWin - a.maxWin).slice(0, 5);
 
-  // Top 3 loss streaks
+  // Top 5 loss streaks
   const topLossStreaks = Object.values(streakData)
-    .sort((a, b) => b.maxLoss - a.maxLoss).slice(0, 3);
+    .sort((a, b) => b.maxLoss - a.maxLoss).slice(0, 5);
 
   // Unique games (dedupe — each matchup appears twice in allGames)
   const uniqueGames = allGames.filter(g => g.pts >= g.oppPts); // keep higher scorer's entry
+
+  // Top 5 scoring seasons (total PF per owner per year)
+  const seasonPF = {}; // "uid:year" → { name, year, totalPF }
+  Object.entries(allSeasonData).forEach(([year, sd]) => {
+    sd.rosters.forEach(r => {
+      const rawUid = r.owner_id;
+      if (!rawUid) return;
+      const uid = canonicalUserId(rawUid);
+      const pf = (r.settings?.fpts || 0) + (r.settings?.fpts_decimal || 0) / 100;
+      if (pf === 0) return;
+      const key = `${uid}:${year}`;
+      seasonPF[key] = { name: ownerMap[uid]?.display_name || uid, year, totalPF: pf };
+    });
+  });
+  const topScoringSeasons = Object.values(seasonPF)
+    .sort((a, b) => b.totalPF - a.totalPF).slice(0, 5);
 
   // Top 10 highest scores
   const topScores = [...allGames]
@@ -1207,14 +1348,25 @@ function loadRecords() {
   function marginList(items, label) {
     return items.map((g, i) => {
       const margin = Math.abs(g.pts - g.oppPts).toFixed(2);
+      const score = `${g.pts.toFixed(2)}–${g.oppPts.toFixed(2)}`;
       return `
       <li>
         <span class="records-rank">${rankIcon(i)}</span>
         <span class="records-name">${g.name} def. ${g.opp}</span>
-        <span class="records-meta">${g.year} Wk ${g.week}</span>
+        <span class="records-meta">${g.year} Wk ${g.week} · ${score}</span>
         <span class="records-val">${label === "blowout" ? `+${margin}` : margin}</span>
       </li>`;
     }).join("");
+  }
+
+  function seasonList(items) {
+    return items.map((s, i) => `
+      <li>
+        <span class="records-rank">${rankIcon(i)}</span>
+        <span class="records-name">${s.name}</span>
+        <span class="records-meta">${s.year} season</span>
+        <span class="records-val">${s.totalPF.toFixed(2)}</span>
+      </li>`).join("");
   }
 
   container.innerHTML = `
@@ -1242,6 +1394,10 @@ function loadRecords() {
       <div class="records-card">
         <div class="records-card-head">🤏 Top 5 Closest Games</div>
         <ul class="records-list">${marginList(closest, "close")}</ul>
+      </div>
+      <div class="records-card">
+        <div class="records-card-head">📈 Top 5 Scoring Seasons</div>
+        <ul class="records-list">${seasonList(topScoringSeasons)}</ul>
       </div>
     </div>`;
 }

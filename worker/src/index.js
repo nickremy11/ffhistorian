@@ -171,6 +171,26 @@ export default {
       );
     }
 
+    // ── LOSERS BRACKET ───────────────────────────────────
+    if (resource === "losers_bracket") {
+      return fetchWithCache(
+        env,
+        `losers_bracket:${leagueId}`,
+        `${SLEEPER_BASE}/league/${leagueId}/losers_bracket`,
+        ttl
+      );
+    }
+
+    // ── LEAGUE INFO (divisions, settings) ────────────────
+    if (resource === "info") {
+      return fetchWithCache(
+        env,
+        `info:${leagueId}`,
+        `${SLEEPER_BASE}/league/${leagueId}`,
+        TTL_OFFSEASON
+      );
+    }
+
     // ── DRAFT INFO + PICKS FOR A LEAGUE ──────────────────
     // Returns { draft_order: {roster_id: slot}, picks: [...] }
     // draft_order maps each roster_id to their original draft slot
