@@ -881,13 +881,13 @@ function renderStandings(year, sortCol, sortDir) {
     { key: "apPct",      label: "AP Win%",     sortable: true  },
     { key: "diff",       label: "+/−",         sortable: true  },
     ...(showAllTime ? [
-      { key: "playoffApps", label: "Playoffs", sortable: true  },
-      { key: "divTitles", label: "Div", sortable: true, hidden: !LEAGUE_CONFIG.hasDivisions },
-      { key: "finalsApps",  label: "Finals",   sortable: true  },
+      { key: "playoffApps", label: "Playoffs", sortable: true },
+      ...(LEAGUE_CONFIG.hasDivisions ? [{ key: "divTitles", label: "Div", sortable: true }] : []),
+      { key: "finalsApps",  label: "Finals",   sortable: true },
     ] : []),
   ];
 
-  const thHTML = cols.filter(c => !c.hidden).map(c => {
+  const thHTML = cols.map(c => {
     if (!c.sortable) return `<th>${c.label}</th>`;
     const active = col === c.key;
     const cls = active ? (dir === -1 ? "sort-desc" : "sort-asc") : "";
