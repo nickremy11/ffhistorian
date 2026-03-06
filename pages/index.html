@@ -180,6 +180,13 @@
       position: relative;
       overflow: hidden;
     }
+    .card-logo-bar img {
+      height: 64px;
+      width: 64px;
+      object-fit: contain;
+      position: relative;
+      z-index: 1;
+    }
     .card-logo-bar::after {
       content: '';
       position: absolute;
@@ -277,6 +284,7 @@
     .league-card:nth-child(5) { animation-delay: 0.25s; }
     .league-card:nth-child(6) { animation-delay: 0.30s; }
     .league-card:nth-child(7) { animation-delay: 0.35s; }
+    .league-card:nth-child(8) { animation-delay: 0.40s; }
   </style>
 </head>
 <body>
@@ -300,8 +308,8 @@
 
     <div class="league-grid">
 
-      <a class="league-card" href="https://ffhistorian.com/2-way-insanity">
-        <div class="card-logo-bar">🏈</div>
+      <a class="league-card" href="https://ffhistorian.com/2wayinsanity1">
+        <div class="card-logo-bar"><img src="/assets/2wayinsanity1_logo.png" alt="2 Way Insanity Logo" onerror="this.replaceWith(document.createTextNode('🏈'))"/></div>
         <div class="card-body">
           <p class="card-number">League I</p>
           <p class="card-name">2 Way Insanity</p>
@@ -310,8 +318,8 @@
         <div class="card-arrow">→</div>
       </a>
 
-      <a class="league-card" href="https://ffhistorian.com/2-way-insanity-part-2">
-        <div class="card-logo-bar">🏈</div>
+      <a class="league-card" href="https://ffhistorian.com/2wayinsanity2">
+        <div class="card-logo-bar"><img src="/assets/2wayinsanity2_logo.png" alt="2 Way Insanity Part 2 Logo" onerror="this.replaceWith(document.createTextNode('🏈'))"/></div>
         <div class="card-body">
           <p class="card-number">League II</p>
           <p class="card-name">2 Way Insanity — Part 2</p>
@@ -320,8 +328,8 @@
         <div class="card-arrow">→</div>
       </a>
 
-      <a class="league-card" href="https://ffhistorian.com/bb-lucky-number-14">
-        <div class="card-logo-bar">🏈</div>
+      <a class="league-card" href="https://ffhistorian.com/bblucky14">
+        <div class="card-logo-bar"><img src="/assets/bblucky14_logo.png" alt="BB Lucky Number 14 Logo" onerror="this.replaceWith(document.createTextNode('🏈'))"/></div>
         <div class="card-body">
           <p class="card-number">League III</p>
           <p class="card-name">BB — Lucky Number 14</p>
@@ -330,8 +338,8 @@
         <div class="card-arrow">→</div>
       </a>
 
-      <a class="league-card" href="https://ffhistorian.com/dynasty-1-0">
-        <div class="card-logo-bar">👑</div>
+      <a class="league-card" href="https://ffhistorian.com/dynasty1point0">
+        <div class="card-logo-bar"><img src="/assets/dynasty1point0_logo.png" alt="Dynasty 1.0 Logo" onerror="this.replaceWith(document.createTextNode('👑'))"/></div>
         <div class="card-body">
           <p class="card-number">League IV</p>
           <p class="card-name">Dynasty 1.0</p>
@@ -340,8 +348,8 @@
         <div class="card-arrow">→</div>
       </a>
 
-      <a class="league-card" href="https://ffhistorian.com/fugayzi">
-        <div class="card-logo-bar">🎭</div>
+      <a class="league-card" href="https://ffhistorian.com/fugazi">
+        <div class="card-logo-bar"><img src="/assets/fugazi_logo.png" alt="Fugazi Logo" onerror="this.replaceWith(document.createTextNode('🎭'))"/></div>
         <div class="card-body">
           <p class="card-number">League V</p>
           <p class="card-name">Fugayzi Fugazi It's a Whazy It's a Woozy</p>
@@ -350,8 +358,8 @@
         <div class="card-arrow">→</div>
       </a>
 
-      <a class="league-card" href="https://ffhistorian.com/late-round-music-league">
-        <div class="card-logo-bar">🎵</div>
+      <a class="league-card" href="https://ffhistorian.com/lateroundmusic">
+        <div class="card-logo-bar"><img src="/assets/lateroundmusic_logo.png" alt="Late Round Music League Logo" onerror="this.replaceWith(document.createTextNode('🎵'))"/></div>
         <div class="card-body">
           <p class="card-number">League VI</p>
           <p class="card-name">Late Round Music League</p>
@@ -361,10 +369,20 @@
       </a>
 
       <a class="league-card" href="https://ffhistorian.com/ncfl">
-        <div class="card-logo-bar">🏆</div>
+        <div class="card-logo-bar"><img src="/assets/ncfl_logo.png" alt="NCFL Logo" onerror="this.replaceWith(document.createTextNode('🏆'))"/></div>
         <div class="card-body">
           <p class="card-number">League VII</p>
           <p class="card-name">No Cap Football League</p>
+          <span class="card-platform">Sleeper</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+
+      <a class="league-card" href="https://ffhistorian.com/emmys">
+        <div class="card-logo-bar"><img src="/assets/emmys_logo.png" alt="Better Than The Emmys Logo" onerror="this.replaceWith(document.createTextNode('🏅'))"/></div>
+        <div class="card-body">
+          <p class="card-number">League VIII</p>
+          <p class="card-name">Better Than The Emmys</p>
           <span class="card-platform">Sleeper</span>
         </div>
         <div class="card-arrow">→</div>
