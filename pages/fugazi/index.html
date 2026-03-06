@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NCFL — FF Historian</title>
+  <title>Fugazi — FF Historian</title>
   <link href="https://fonts.googleapis.com/css2?family=Rye&family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
   <style>
     :root {
@@ -307,12 +307,12 @@
 
   <header class="banner">
     <div class="banner-inner">
-      <img class="banner-logo" src="/assets/ncfl_logo.png" alt="NCFL Logo"/>
+      <img class="banner-logo" src="/assets/fugazi_logo.png" alt="Fugazi Logo"/>
       <div class="banner-text">
         <a class="banner-back" href="/">← All Leagues</a>
-        <h1>No Cap Football <span>League</span></h1>
+        <h1>Fugayzi Fugazi <span>League</span></h1>
         <p class="banner-sub">The Official Record &amp; Archive</p>
-        <p class="banner-seasons">2022 · 2023 · 2024 · 2025</p>
+        <p class="banner-seasons">2023 · 2024 · 2025</p>
         <div class="banner-divider"></div>
       </div>
     </div>
@@ -417,22 +417,20 @@
 
 <script>
 // ═══════════════════════════════════════════════════
-// CONFIG — real NCFL league IDs
+// CONFIG — real league IDs
 // 2026 intentionally omitted (no data yet)
 // ═══════════════════════════════════════════════════
 const LEAGUE_CONFIG = {
-  name: "No Cap Football League",
+  name: "Fugayzi Fugazi It's a Whazy It's a Woozy",
   seasons: {
-    2022: "834179031011287040",
-    2023: "917118347102236672",
-    2024: "1050188337924902912",
-    2025: "1180232430068178944",
+    2023: "978332947109507072",
+    2024: "1048273428588969984",
+    2025: "1180907428861726720",
   },
   // Rookie draft IDs — 2022 is startup (no slot-based picks), 2026 hasn't happened yet
   draftIds: {
-    2023: "917118347102236673",
-    2024: "1050188337924902913",
-    2025: "1180232430068178945",
+    2024: "1048273428588969985",
+    2025: "1180907428861726721",
   }
 };
 
@@ -450,21 +448,7 @@ const API_BASE = "/api/league";
 // TEAM_NAME_ALIASES: simple renames where the same user_id
 // just changed their team name across seasons.
 // ═══════════════════════════════════════════════════
-const OWNERSHIP_MERGES = [
-  {
-    // tantan1 (Arlington XL Boys) → Bsmitty (Henrico Havoc Hogs)
-    // Bsmitty took over the same roster in 2024
-    legacyUserId:    "834619940182032384",   // tantan1
-    canonicalUserId: "1007997964816330752",   // Bsmitty
-    seasonTeamNames: {
-      // Display name per season — uses team name at the time
-      "2022": "Arlington XL Boys",
-      "2023": "Arlington XL Boys",
-      "2024": "Henrico Havoc Hogs",
-      "2025": "Henrico Havoc Hogs",
-    },
-  },
-];
+const OWNERSHIP_MERGES = [];
 
 const TEAM_NAME_ALIASES = {
   // Simple renames (same user_id, different team name)
@@ -562,7 +546,11 @@ async function buildDraftPickMap() {
   for (const year of rookieDraftYears) {
     const lid = LEAGUE_CONFIG.seasons[year];
     try {
-      const data = await fetch(`/api/league/${lid}/draft`).then(r => r.json());
+      const draftId = LEAGUE_CONFIG.draftIds?.[year];
+      const draftUrl = draftId
+        ? `/api/league/${lid}/draft?draftId=${draftId}`
+        : `/api/league/${lid}/draft`;
+      const data = await fetch(draftUrl).then(r => r.json());
       if (!data || !Array.isArray(data.picks)) continue;
 
       const { picks, draft_order } = data;
