@@ -271,6 +271,10 @@
     .records-val { font-family: 'Playfair Display', serif; font-weight: 700; color: var(--brown-dark); white-space: nowrap; }
 
     /* ── SORTABLE TABLES ── */
+    .standings-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .standings-table { width: 100%; white-space: nowrap; font-size: 0.88rem; }
+    .standings-table th, .standings-table td { padding: 7px 10px; }
+    .standings-table td:first-child { white-space: normal; min-width: 140px; max-width: 200px; }
     .standings-table th { cursor: pointer; user-select: none; white-space: nowrap; }
     .standings-table th:hover { color: var(--gold); }
     .standings-table th.sort-asc::after  { content: " ▲"; font-size: 0.6em; color: var(--gold); }
@@ -780,19 +784,12 @@ function renderStandings(year, sortCol, sortDir) {
       }
     }
 
-    // ── 3rd place from loser bracket ─────────────────────
-    if (Array.isArray(sd.loserBracket) && sd.loserBracket.length > 0) {
-      // The 3rd place game is the highest round in the loser bracket with a winner
-      // BUT Sleeper's "loser bracket" is actually the consolation bracket
-      // 3rd place = winner of the final consolation match (highest round, winner's bracket losers)
-      // We look for the match that determines 3rd — typically round 2 or 3 of winners bracket losers
-      // Strategy: find the match whose winner is NOT the toilet bowl winner
-      // Simplest: highest round match with a winner in the losers bracket
-      const lbMaxRound = Math.max(...sd.loserBracket.map(m => m.r || 0));
-      // Find all matches at max round
-      const lbFinals = sd.loserBracket.filter(m => m.r === lbMaxRound && m.w);
-      // The 3rd place game is the one at the top of the bracket (p=3 if Sleeper sets it)
-      const thirdMatch = lbFinals.find(m => m.p === 3) || lbFinals[0];
+    // ── 3rd place from winners bracket ──────────────────
+    // In Sleeper, the 3rd place game lives in the winners bracket, not the loser bracket
+    // It's the match tagged with p=3, or alternatively the semi-final loser playoff
+    // The winners bracket contains the championship game AND the 3rd place game
+    if (Array.isArray(sd.bracketData) && sd.bracketData.length > 0) {
+      const thirdMatch = sd.bracketData.find(m => m.p === 3 && m.w);
       if (thirdMatch?.w) yearThird[yr] = canonicalUserId(sd.rosterUserMap[thirdMatch.w]);
     }
 
@@ -804,7 +801,7 @@ function renderStandings(year, sortCol, sortDir) {
         wins: 0, losses: 0, pf: 0, pa: 0,
         championships: 0, runnerUps: 0, thirdPlaces: 0,
         divTitles: 0, finalsApps: 0,
-        playoffW: 0, playoffL: 0,
+        playoffApps: 0,
         seasonNames: {}, seasonAwards: {}
       };
       records[uid].wins   += (r.settings?.wins || 0);
@@ -836,13 +833,17 @@ function renderStandings(year, sortCol, sortDir) {
         }
       }
 
-      // Playoff W/L — count bracket matches
+      // Playoff appearances — any roster that appears in the winners bracket
+      const playoffRosterIds = new Set();
       sd.bracketData.forEach(m => {
-        if (!m.w || !m.l) return;
-        const wUid = canonicalUserId(sd.rosterUserMap[m.w]);
-        const lUid = canonicalUserId(sd.rosterUserMap[m.l]);
-        if (wUid && records[wUid]) records[wUid].playoffW += 1;
-        if (lUid && records[lUid]) records[lUid].playoffL += 1;
+        if (m.t1) playoffRosterIds.add(m.t1);
+        if (m.t2) playoffRosterIds.add(m.t2);
+        if (m.w)  playoffRosterIds.add(m.w);
+        if (m.l)  playoffRosterIds.add(m.l);
+      });
+      playoffRosterIds.forEach(rid => {
+        const pUid = canonicalUserId(sd.rosterUserMap[rid]);
+        if (pUid && records[pUid]) records[pUid].playoffApps += 1;
       });
     }
 
@@ -893,10 +894,9 @@ function renderStandings(year, sortCol, sortDir) {
     { key: "apPct",      label: "AP Win%",     sortable: true  },
     { key: "diff",       label: "+/−",         sortable: true  },
     ...(showAllTime ? [
-      { key: "divTitles",  label: "Div",       sortable: true  },
-      { key: "finalsApps", label: "Finals",    sortable: true  },
-      { key: "playoffW",   label: "PO W",      sortable: true  },
-      { key: "playoffL",   label: "PO L",      sortable: true  },
+      { key: "playoffApps", label: "Playoffs", sortable: true  },
+      { key: "divTitles",   label: "Div",      sortable: true  },
+      { key: "finalsApps",  label: "Finals",   sortable: true  },
     ] : []),
   ];
 
@@ -950,10 +950,9 @@ function renderStandings(year, sortCol, sortDir) {
       <td class="win-pct">${(rec.apPct*100).toFixed(1)}%</td>
       <td>${diffVal}</td>
       ${showAllTime ? `
+      <td>${rec.playoffApps || "—"}</td>
       <td>${rec.divTitles || "—"}</td>
-      <td>${rec.finalsApps || "—"}</td>
-      <td>${rec.playoffW || 0}</td>
-      <td>${rec.playoffL || 0}</td>` : ""}
+      <td>${rec.finalsApps || "—"}</td>` : ""}
     </tr>`;
   });
 
