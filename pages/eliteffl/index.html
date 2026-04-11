@@ -525,15 +525,16 @@ function getOwnerRecord(years) {
         });
 
     // 2022 split championship
-        if (records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"]) records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"].champs += 0.5; // Cullen
+        if (records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"]) records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"].champs -= 0.5; // Cullen
         if (records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"]) {
             records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].champs += 0.5; // Hickey
             records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].finals += 1;
-        if (!records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022]) records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022] = [];
-        if (!records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022].includes("champ")) {
-            records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022].push("champ");
+            if (!records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022]) records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022] = [];
+                const hAwards = records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022];
+                const riIdx = hAwards.indexOf("runnerup");
+            if (riIdx > -1) hAwards.splice(riIdx, 1);
+            if (!hAwards.includes("champ")) hAwards.push("champ");
             }
-        }
   return records;
 }
 
@@ -684,7 +685,7 @@ function renderStandings(year, sortCol, sortDir) {
   });
 
   html += `</tbody></table></div>
-    <p class="standings-footnote">* Regular season only &nbsp;·&nbsp; Win% = W / (W+L+T) &nbsp;·&nbsp; ${showAllTime ? "⭐ = Championship &nbsp;·&nbsp;" : ""} Color = rank within column &nbsp;·&nbsp; 🏆 counts include 2008–2012 champions (standings data from 2013 onwards)</p>`;
+    <p class="standings-footnote">* Regular season only &nbsp;·&nbsp; Win% = W / (W+L+T) &nbsp;·&nbsp; ${showAllTime ? "⭐ = Championship &nbsp;·&nbsp;" : ""} Color = rank within column </p>`;
   container.innerHTML = html;
 }
 
