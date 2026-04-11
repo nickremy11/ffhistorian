@@ -481,11 +481,12 @@ function getOwnerRecord(years) {
 
       const rank = t.rankCalculatedFinal;
       if (rank === 1) {
-        const override = (CHAMPIONSHIP_OVERRIDES[yr] || []).find(o => canonicalId(o.id) === uid);
-        const champCredit = override ? override.champs : 1;
-        records[uid].champs  += champCredit;
-        records[uid].finals  += 1;
-        records[uid].seasonAwards[yr].push("champ");
+        const overrides = CHAMPIONSHIP_OVERRIDES[yr] || [];
+        if (overrides.length === 0) {
+            // Normal year
+            records[uid].champs += 1;
+            records[uid].finals += 1;
+            records[uid].seasonAwards[yr].push("champ");
       } else if (rank === 2) {
         records[uid].finals++;
         records[uid].seasonAwards[yr].push("runnerup");
@@ -522,24 +523,17 @@ function getOwnerRecord(years) {
       }
     });
    
-    // Apply championship overrides — runs for all members regardless of rank
-    const overrides = CHAMPIONSHIP_OVERRIDES[yr] || [];
-    if (overrides.length > 0) {
-        overrides.forEach(o => {
+    // Championship overrides — applied once per season, independent of rank
+    (CHAMPIONSHIP_OVERRIDES[yr] || []).forEach(o => {
         const oUid = canonicalId(o.id);
         ensure(oUid);
     if (!records[oUid].seasonAwards[yr]) records[oUid].seasonAwards[yr] = [];
-    // Reset whatever rank-based champ credit was given and use override value
-    // We track this by subtracting any champ already added this year first
-        const alreadyAdded = records[oUid].seasonAwards[yr].includes("champ") ? 1 : 0;
-        records[oUid].champs  = (records[oUid].champs - alreadyAdded) + o.champs;
-        records[oUid].finals  += alreadyAdded === 0 ? 1 : 0; // only add finals if not already counted
+        records[oUid].champs += o.champs;
+        records[oUid].finals += 1;
     if (!records[oUid].seasonAwards[yr].includes("champ")) {
         records[oUid].seasonAwards[yr].push("champ");
-    }
-        });
-    }
-  });
+        }
+    });
 
   return records;
 }
