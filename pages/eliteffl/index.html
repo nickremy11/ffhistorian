@@ -369,7 +369,15 @@ function getOwnerRecord(years) {
       seasonAwards: {},
     };
   }
-
+        // Add temporarily at the start of getOwnerRecord
+Object.entries(allSeasonData).forEach(([yr, sd]) => {
+  console.log(`${yr} divisions:`, sd.teams.map(t => ({ 
+    name: t.name, 
+    divId: t.divisionId,
+    divWins: t.record?.division?.wins,
+    overallWins: t.record?.overall?.wins
+  })));
+});
   years.forEach(yr => {
     const sd = allSeasonData[yr];
     if (!sd) return;
