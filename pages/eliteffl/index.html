@@ -511,9 +511,29 @@ function getOwnerRecord(years) {
       }
     });
   });
-    // 2022 split championship — Cullen and Hickey each get 0.5
-    if (records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"]) records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"].champs -= 0.5; // Cullen
-    if (records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"]) records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].champs += 0.5; // Hickey
+    // Pre-2013 championships (no matchup data available)
+    const PRE_ESPN_CHAMPS = {
+        "{969CD6AD-35BE-4494-917C-6634B005F24A}": 1,   // Jeremy 2008
+        "{C8BE2BA4-D0F7-4191-9915-39F2BF00BC3F}": 1,   // Joe 2009
+        "{EE435FB1-4583-4A3B-93E1-7043550783A1}": 1,   // Nathan 2010
+        "{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}": 1,   // Cullen 2011
+        "{DDF16D17-6A6D-4AA1-974D-2B730ACAE43D}": 1,   // Schnupper 2012
+        };
+    Object.entries(PRE_ESPN_CHAMPS).forEach(([id, credit]) => {
+        const uid = canonicalId(id);
+        if (records[uid]) records[uid].champs += credit;
+        });
+
+    // 2022 split championship
+        if (records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"]) records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"].champs += 0.5; // Cullen
+        if (records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"]) {
+            records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].champs += 0.5; // Hickey
+            records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].finals += 1;
+        if (!records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022]) records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022] = [];
+        if (!records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022].includes("champ")) {
+            records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].seasonAwards[2022].push("champ");
+            }
+        }
   return records;
 }
 
@@ -664,7 +684,7 @@ function renderStandings(year, sortCol, sortDir) {
   });
 
   html += `</tbody></table></div>
-    <p class="standings-footnote">* Regular season only &nbsp;·&nbsp; Win% = W / (W+L+T) &nbsp;·&nbsp; ${showAllTime ? "⭐ = Championship &nbsp;·&nbsp;" : ""} Color = rank within column</p>`;
+    <p class="standings-footnote">* Regular season only &nbsp;·&nbsp; Win% = W / (W+L+T) &nbsp;·&nbsp; ${showAllTime ? "⭐ = Championship &nbsp;·&nbsp;" : ""} Color = rank within column &nbsp;·&nbsp; 🏆 counts include 2008–2012 champions (standings data from 2013 onwards)</p>`;
   container.innerHTML = html;
 }
 
