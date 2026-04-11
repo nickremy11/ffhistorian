@@ -254,15 +254,6 @@
 const LEAGUE_KEY = "eliteffl";
 const SEASONS    = [2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
 
-// Manual overrides for unusual results
-// fractional: true allows non-integer championship counts
-const CHAMPIONSHIP_OVERRIDES = {
-  2022: [
-    { id: "{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}", champs: 0.5 }, // Cullen
-    { id: "{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}", champs: 0.5 }, // Hickey
-  ]
-};
-
 // ESPN member ID → nickname
 // Patriotsfan22 merges into Patriots2427 (same person, two accounts)
 const NICKNAME_MAP = {
@@ -481,12 +472,9 @@ function getOwnerRecord(years) {
 
       const rank = t.rankCalculatedFinal;
       if (rank === 1) {
-        const overrides = CHAMPIONSHIP_OVERRIDES[yr] || [];
-        if (overrides.length === 0) {
-            // Normal year
-            records[uid].champs += 1;
-            records[uid].finals += 1;
-            records[uid].seasonAwards[yr].push("champ");
+        records[uid].champs++;
+        records[uid].finals++;
+        records[uid].seasonAwards[yr].push("champ");
       } else if (rank === 2) {
         records[uid].finals++;
         records[uid].seasonAwards[yr].push("runnerup");
@@ -522,19 +510,10 @@ function getOwnerRecord(years) {
         records[uid].seasonAwards[yr].push("div");
       }
     });
-   
-    // Championship overrides — applied once per season, independent of rank
-    (CHAMPIONSHIP_OVERRIDES[yr] || []).forEach(o => {
-        const oUid = canonicalId(o.id);
-        ensure(oUid);
-    if (!records[oUid].seasonAwards[yr]) records[oUid].seasonAwards[yr] = [];
-        records[oUid].champs += o.champs;
-        records[oUid].finals += 1;
-    if (!records[oUid].seasonAwards[yr].includes("champ")) {
-        records[oUid].seasonAwards[yr].push("champ");
-        }
-    });
-
+  });
+    // 2022 split championship — Cullen and Hickey each get 0.5
+    if (records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"]) records["{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}"].champs -= 0.5; // Cullen
+    if (records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"]) records["{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}"].champs += 0.5; // Hickey
   return records;
 }
 
@@ -647,7 +626,7 @@ function renderStandings(year, sortCol, sortDir) {
     // Stars for championships (all-time only)
     let nameExtra = "";
     if (showAllTime && r.champs > 0) {
-      nameExtra = `<span class="stars">${"⭐".repeat(Math.min(Math.ceil(r.champs), 5))}</span>`;
+      nameExtra = `<span class="stars">${"⭐".repeat(Math.min(r.champs, 5))}</span>`;
     } else if (!showAllTime) {
       // Per-year awards next to name
       const awards = r.seasonAwards?.[year] || [];
