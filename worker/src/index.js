@@ -76,9 +76,50 @@ export default {
       });
     }
 
-    // Only handle /api/league/... or /api/players
-    if (!path.startsWith("/api/league/") && path !== "/api/players") {
+    // Only handle /api/league/..., /api/players, or /api/espn/...
+    if (!path.startsWith("/api/league/") && path !== "/api/players" && !path.startsWith("/api/espn/")) {
       return new Response("Not found", { status: 404 });
+    }
+
+    // ── ESPN R2 ROUTES ────────────────────────────────────
+    // /api/espn/:leagueKey/:season  → serves season JSON from R2
+    // /api/espn/:leagueKey/trades   → serves trades JSON from R2
+    if (path.startsWith("/api/espn/")) {
+      const espnSegments = path.replace("/api/espn/", "").split("/");
+      const leagueKey   = espnSegments[0]; // e.g. "eliteffl"
+      const seasonOrKey = espnSegments[1]; // e.g. "2025" or "trades"
+
+      if (!leagueKey || !seasonOrKey) {
+        return new Response(JSON.stringify({ error: "Invalid ESPN route" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      const r2Key = `espn/${leagueKey}/${seasonOrKey}.json`;
+
+      try {
+        const obj = await env.ESPN_DATA.get(r2Key);
+        if (!obj) {
+          return new Response(JSON.stringify({ error: "Not found", key: r2Key }), {
+            status: 404,
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          });
+        }
+        const body = await obj.text();
+        return new Response(body, {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
     }
 
     // ── NFL PLAYERS LOOKUP ────────────────────────────────

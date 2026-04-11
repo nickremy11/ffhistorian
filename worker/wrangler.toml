@@ -9,3 +9,7 @@ routes = [
 [[kv_namespaces]]
 binding = "FF_CACHE"
 id = "c8fa6169e99b4202a9aa6441e0a39aba"
+
+[[r2_buckets]]
+bucket_name = "ff-historian-espn"
+binding = "ESPN_DATA"
