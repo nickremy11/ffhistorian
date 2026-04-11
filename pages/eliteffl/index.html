@@ -369,15 +369,7 @@ function getOwnerRecord(years) {
       seasonAwards: {},
     };
   }
-        // Add temporarily at the start of getOwnerRecord
-Object.entries(allSeasonData).forEach(([yr, sd]) => {
-  console.log(`${yr} divisions:`, sd.teams.map(t => ({ 
-    name: t.name, 
-    divId: t.divisionId,
-    divWins: t.record?.division?.wins,
-    overallWins: t.record?.overall?.wins
-  })));
-});
+
   years.forEach(yr => {
     const sd = allSeasonData[yr];
     if (!sd) return;
@@ -496,27 +488,27 @@ Object.entries(allSeasonData).forEach(([yr, sd]) => {
 
     // ── Division titles ───────────────────────────────────
     const divGroups = {};
-    sd.teams.forEach(t => {
-      const div = t.divisionId ?? -1;
-      if (div < 0) return;
-      if (!divGroups[div]) divGroups[div] = [];
-      divGroups[div].push(t);
-    });
+        sd.teams.forEach(t => {
+        const div = t.divisionId ?? -1;
+        if (div < 0) return;
+        if (!divGroups[div]) divGroups[div] = [];
+        divGroups[div].push(t);
+        });
     Object.values(divGroups).forEach(group => {
-      if (!group.length) return;
-      const winner = group.reduce((best, t) => {
-        const bRec = best.record?.division || best.record?.overall || {};
-        const tRec = t.record?.division    || t.record?.overall    || {};
-        const bW = bRec.wins || 0, tW = tRec.wins || 0;
-        const bPF = bRec.pointsFor || 0, tPF = tRec.pointsFor || 0;
+        if (!group.length) return;
+            const winner = group.reduce((best, t) => {
+            const bW  = best.record?.overall?.wins     || 0;
+            const tW  = t.record?.overall?.wins        || 0;
+            const bPF = best.record?.overall?.pointsFor || 0;
+            const tPF = t.record?.overall?.pointsFor    || 0;
         return (tW > bW || (tW === bW && tPF > bPF)) ? t : best;
-      });
-      const uid = teamOwner[winner.id];
-      if (uid && records[uid]) {
-        records[uid].divTitles++;
+  });
+    const uid = teamOwner[winner.id];
+        if (uid && records[uid]) {
+            records[uid].divTitles++;
         if (!records[uid].seasonAwards[yr]) records[uid].seasonAwards[yr] = [];
-        records[uid].seasonAwards[yr].push("div");
-      }
+            records[uid].seasonAwards[yr].push("div");
+        }
     });
   });
     // Pre-2013 championships (no matchup data available)
@@ -603,7 +595,7 @@ function renderStandings(year, sortCol, sortDir) {
     if (va !== vb) return (vb - va) * dir * -1;
     // Tiebreaker: PF/G descending
     return b.pfg - a.pfg;
-    });
+});
 
   // Heat map value arrays
   const heatCols = {
@@ -756,7 +748,8 @@ function loadH2H() {
 
     // Find matchups where they faced each other (regular season only)
     (sd.schedule || []).forEach(m => {
-      if (!isRegularSeason(m)) return;
+      const awayUid = teamOwner[m.away?.teamId];
+      const homeUid = teamOwner[m.home?.teamId];
       const aId = m.away?.teamId, hId = m.home?.teamId;
       const involves1 = aId === team1.id || hId === team1.id;
       const involves2 = aId === team2.id || hId === team2.id;
@@ -771,7 +764,9 @@ function loadH2H() {
       if (pts1 > pts2)      { w1++; result = "W"; }
       else if (pts2 > pts1) { w2++; result = "L"; }
       else                  { t++;  result = "T"; }
-      matchups.push({ yr, week: m.matchupPeriodId, pts1, pts2, result });
+      
+      const isPlayoff = m.playoffTierType && m.playoffTierType !== "NONE";
+      matchups.push({ yr, week: m.matchupPeriodId, pts1, pts2, result, isPlayoff });
     });
   });
 
