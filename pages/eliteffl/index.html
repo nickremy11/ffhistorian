@@ -592,8 +592,10 @@ function renderStandings(year, sortCol, sortDir) {
 
   rows.sort((a, b) => {
     const va = a[col] ?? 0, vb = b[col] ?? 0;
-    return (vb - va) * dir * -1;
-  });
+    if (va !== vb) return (vb - va) * dir * -1;
+    // Tiebreaker: PF/G descending
+    return b.pfg - a.pfg;
+    });
 
   // Heat map value arrays
   const heatCols = {
