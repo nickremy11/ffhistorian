@@ -733,11 +733,6 @@ function loadH2H() {
   SEASONS.forEach(yr => {
     const sd = allSeasonData[yr];
     if (!sd) return;
-        (sd.schedule || []).forEach(m => {
-        if (m.playoffTierType && m.playoffTierType !== "NONE") {
-            console.log(`${yr} week ${m.matchupPeriodId}:`, m.playoffTierType);
-        }
-        }); 
 
     // Build teamId → canonical owner id
     const teamOwner = {};
@@ -759,6 +754,8 @@ function loadH2H() {
       const involves1 = aId === team1.id || hId === team1.id;
       const involves2 = aId === team2.id || hId === team2.id;
       if (!involves1 || !involves2) return;
+      const isConsolation = m.playoffTierType === "LOSERS_CONSOLATION_LADDER" || m.playoffTierType === "WINNERS_CONSOLATION_LADDER";
+        if (isConsolation) return;
 
       const pts1 = aId === team1.id ? (m.away?.totalPoints||0) : (m.home?.totalPoints||0);
       const pts2 = aId === team2.id ? (m.away?.totalPoints||0) : (m.home?.totalPoints||0);
