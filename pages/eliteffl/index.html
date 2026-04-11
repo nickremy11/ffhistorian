@@ -521,6 +521,24 @@ function getOwnerRecord(years) {
         records[uid].seasonAwards[yr].push("div");
       }
     });
+   
+    // Apply championship overrides — runs for all members regardless of rank
+    const overrides = CHAMPIONSHIP_OVERRIDES[yr] || [];
+    if (overrides.length > 0) {
+        overrides.forEach(o => {
+        const oUid = canonicalId(o.id);
+        ensure(oUid);
+    if (!records[oUid].seasonAwards[yr]) records[oUid].seasonAwards[yr] = [];
+    // Reset whatever rank-based champ credit was given and use override value
+    // We track this by subtracting any champ already added this year first
+        const alreadyAdded = records[oUid].seasonAwards[yr].includes("champ") ? 1 : 0;
+        records[oUid].champs  = (records[oUid].champs - alreadyAdded) + o.champs;
+        records[oUid].finals  += alreadyAdded === 0 ? 1 : 0; // only add finals if not already counted
+    if (!records[oUid].seasonAwards[yr].includes("champ")) {
+        records[oUid].seasonAwards[yr].push("champ");
+    }
+        });
+    }
   });
 
   return records;
