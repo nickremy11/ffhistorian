@@ -730,15 +730,14 @@ function loadH2H() {
   const matchups = [];
   let w1=0, w2=0, t=0, pf1=0, pf2=0;
 
-  (sd.schedule || []).forEach(m => {
-  if (m.playoffTierType && m.playoffTierType !== "NONE") {
-    console.log(`${yr} week ${m.matchupPeriodId}:`, m.playoffTierType);
-  }
-    }); 
-
   SEASONS.forEach(yr => {
     const sd = allSeasonData[yr];
     if (!sd) return;
+        (sd.schedule || []).forEach(m => {
+        if (m.playoffTierType && m.playoffTierType !== "NONE") {
+            console.log(`${yr} week ${m.matchupPeriodId}:`, m.playoffTierType);
+        }
+        }); 
 
     // Build teamId → canonical owner id
     const teamOwner = {};
