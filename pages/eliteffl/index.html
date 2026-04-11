@@ -254,6 +254,15 @@
 const LEAGUE_KEY = "eliteffl";
 const SEASONS    = [2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
 
+// Manual overrides for unusual results
+// fractional: true allows non-integer championship counts
+const CHAMPIONSHIP_OVERRIDES = {
+  2022: [
+    { id: "{96348A5E-C3CD-4A00-8EFB-13EF889BFEAD}", champs: 0.5 }, // Cullen
+    { id: "{D7809CB9-0105-4BE6-AFBA-C77D5C6EEDEB}", champs: 0.5 }, // Hickey
+  ]
+};
+
 // ESPN member ID → nickname
 // Patriotsfan22 merges into Patriots2427 (same person, two accounts)
 const NICKNAME_MAP = {
@@ -472,8 +481,10 @@ function getOwnerRecord(years) {
 
       const rank = t.rankCalculatedFinal;
       if (rank === 1) {
-        records[uid].champs++;
-        records[uid].finals++;
+        const override = (CHAMPIONSHIP_OVERRIDES[yr] || []).find(o => canonicalId(o.id) === uid);
+        const champCredit = override ? override.champs : 1;
+        records[uid].champs  += champCredit;
+        records[uid].finals  += 1;
         records[uid].seasonAwards[yr].push("champ");
       } else if (rank === 2) {
         records[uid].finals++;
@@ -624,7 +635,7 @@ function renderStandings(year, sortCol, sortDir) {
     // Stars for championships (all-time only)
     let nameExtra = "";
     if (showAllTime && r.champs > 0) {
-      nameExtra = `<span class="stars">${"⭐".repeat(Math.min(r.champs, 5))}</span>`;
+      nameExtra = `<span class="stars">${"⭐".repeat(Math.min(Math.ceil(r.champs), 5))}</span>`;
     } else if (!showAllTime) {
       // Per-year awards next to name
       const awards = r.seasonAwards?.[year] || [];
