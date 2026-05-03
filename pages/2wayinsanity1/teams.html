@@ -161,25 +161,27 @@ const PICK_YEARS  = 3; // show next N draft years
 // Returns { col, star } for a player
 // col = which column they go in
 // star = true if LB-eligible dual position
-function classifyPosition(pos) {
-  if (!pos) return { col: null, star: false };
+function classifyPosition(player) {
+  if (!player) return { col: null, star: false };
+  const positions = player.fantasy_positions || [];
+  const hasDL = positions.includes("DL");
+  const hasLB = positions.includes("LB");
+  const hasDB = positions.includes("DB");
+  const hasS  = positions.includes("S");
+  const hasCB = positions.includes("CB");
 
-  const p = pos.toUpperCase();
+  if (hasDL && hasLB) return { col: "DL", star: true };
+  if ((hasDB || hasS || hasCB) && hasLB) return { col: "DB", star: true };
+  if (hasDL) return { col: "DL", star: false };
+  if (hasLB) return { col: "LB", star: false };
+  if (hasDB || hasS || hasCB) return { col: "DB", star: false };
 
-  // Dual positions with LB
-  if ((p === "DL/LB" || p === "LB/DL")) return { col: "DL", star: true };
-  if ((p === "DB/LB" || p === "LB/DB")) return { col: "DB", star: true };
-
-  // Pure positions
+  const primary = positions[0] || player.position || "";
+  const p = primary.toUpperCase();
   if (p === "QB") return { col: "QB", star: false };
   if (p === "RB") return { col: "RB", star: false };
   if (p === "WR") return { col: "WR", star: false };
   if (p === "TE") return { col: "TE", star: false };
-  if (p === "DL") return { col: "DL", star: false };
-  if (p === "LB") return { col: "LB", star: false };
-  if (p === "DB") return { col: "DB", star: false };
-  if (p === "K")  return { col: null, star: false }; // skip kickers
-
   return { col: null, star: false };
 }
 
@@ -204,9 +206,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       fetchRosters(),
     ]);
     renderAll();
-    // Debug — remove after checking
-      console.log("Sample players:", Object.entries(playerMap).filter(([,p]) => p?.position === "LB" || p?.fantasy_positions?.includes("LB")).slice(0,5).map(([id,p]) => ({ id, pos: p.position, fantasy_positions: p.fantasy_positions })));
-      console.log("Sample roster picks:", rosters[0]?.draft_picks);
+    console.log("Full roster 0:", JSON.stringify(rosters[0]).slice(0, 500));
   } catch(e) {
     document.getElementById("mainContent").innerHTML =
       `<div class="error-msg">Failed to load roster data: ${e.message}</div>`;
@@ -357,7 +357,7 @@ function renderTeamCard(roster, userMap) {
     const p      = playerMap[id];
     const status = uniquePlayers.find(u => u.id === id)?.status || "normal";
     const pos    = p?.fantasy_positions?.[0] || p?.position || "";
-    const { col, star } = classifyPosition(pos);
+    const { col, star } = classifyPosition(p);
     if (col && cols[col]) {
       cols[col].push({ id, name: p?.full_name || id, star, status });
     }
