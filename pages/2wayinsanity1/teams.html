@@ -204,9 +204,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     await Promise.all([
       fetchPlayerMap(),
       fetchRosters(),
+      console.log("Raw traded picks:", picks.slice(0, 3));
+      console.log("Roster IDs:", rosters.map(r => r.roster_id));
     ]);
     renderAll();
-    console.log("Full roster 0:", JSON.stringify(rosters[0]).slice(0, 500));
   } catch(e) {
     document.getElementById("mainContent").innerHTML =
       `<div class="error-msg">Failed to load roster data: ${e.message}</div>`;
