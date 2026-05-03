@@ -12,8 +12,8 @@ import re
 from datetime import datetime
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
-PAGES_DIR = os.path.join(os.path.dirname(__file__), "..", "pages")
-LOG_FILE  = os.path.join(os.path.dirname(__file__), "..", "logs", "update_log.txt")
+PAGES_DIR = os.path.join(os.path.dirname(__file__), "pages")
+LOG_FILE  = os.path.join(os.path.dirname(__file__), "update_log.txt")
 
 # ESPN leagues and any other folders to always skip
 SKIP_FOLDERS = {"eliteffl", "wolfpack", "assets", "_redirects"}
@@ -115,27 +115,37 @@ def add_season(folders):
         content = read_file(folder)
         contents[folder] = content
 
-        # Find the last entry in the seasons block and insert after it
-        # Matches lines like:    2025: "123456",
-        pattern = r'((\s+)(\d{4}):\s*"[^"]+",?\s*\n)(\s*},\s*\n\s*(?:draftIds|hasDivisions))'
-        match = re.search(pattern, content)
-        if not match:
+        # Find the seasons block specifically, then the last year entry within it
+        seasons_block = re.search(r'seasons:\s*\{([^}]+)\}', content, re.DOTALL)
+        if not seasons_block:
             print(f"  [{folder}] Could not find seasons block — skipping.")
             continue
 
-        last_season_line = match.group(1)
-        indent = match.group(2)
+        block_content = seasons_block.group(1)
+        last_entry = re.findall(r'([ \t]+)(\d{4}):\s*"[^"]+"', block_content)
+        if not last_entry:
+            print(f"  [{folder}] Could not find any season entries — skipping.")
+            continue
+
+        indent = last_entry[-1][0]
+        last_year = last_entry[-1][1]
+
+        old_line_match = re.search(rf'({re.escape(indent)}{last_year}:\s*"[^"]+",?)\n', content)
+        if not old_line_match:
+            print(f"  [{folder}] Could not locate last season line — skipping.")
+            continue
+
+        old_line = old_line_match.group(0)
         new_line = f'{indent}{year}: "{lid}",\n'
-        before_line = last_season_line
-        after_line = last_season_line + new_line
+        replacement = old_line + new_line
 
         changes.append({
             "folder": folder,
             "description": f"Add season {year}: {lid}",
-            "before_line": before_line.rstrip(),
-            "after_line": after_line.rstrip(),
-            "pattern": last_season_line,
-            "replacement": last_season_line + new_line,
+            "before_line": old_line.rstrip(),
+            "after_line": replacement.rstrip(),
+            "pattern": old_line,
+            "replacement": replacement,
         })
 
     if not show_preview(changes):
@@ -179,15 +189,18 @@ def add_draft_id(folders):
         content = read_file(folder)
         contents[folder] = content
 
-        # Find the draftIds block and insert the new entry before the closing brace
-        # Matches the closing },  of draftIds followed by hasDivisions or end of config
-        pattern = r'((\s+)(\d{4}):\s*"[^"]+",?\s*\n)(\s*},?\s*\n\s*hasDivisions)'
-        match = re.search(pattern, content)
-        if not match:
-            # draftIds block might be empty or have different structure
-            # Try to find an empty draftIds block
-            empty_pattern = r'(draftIds:\s*\{\s*\n)(\s*\},)'
-            empty_match = re.search(empty_pattern, content)
+        # Find the draftIds block specifically, then the last year entry within it
+        draft_block = re.search(r'draftIds:\s*\{([^}]*)\}', content, re.DOTALL)
+        if not draft_block:
+            print(f"  [{folder}] Could not find draftIds block — skipping.")
+            continue
+
+        block_content = draft_block.group(1)
+        last_entry = re.findall(r'([ \t]+)(\d{4}):\s*"[^"]+"', block_content)
+
+        if not last_entry:
+            # Empty draftIds block — insert first entry
+            empty_match = re.search(r'(draftIds:\s*\{\s*\n)(\s*\},)', content)
             if empty_match:
                 indent = "    "
                 new_line = f'{indent}{year}: "{did}",\n'
@@ -202,22 +215,28 @@ def add_draft_id(folders):
                     "replacement": after_line,
                 })
             else:
-                print(f"  [{folder}] Could not find draftIds block — skipping.")
+                print(f"  [{folder}] Could not insert into empty draftIds block — skipping.")
             continue
 
-        last_draft_line = match.group(1)
-        indent = match.group(2)
+        indent = last_entry[-1][0]
+        last_year = last_entry[-1][1]
+
+        old_line_match = re.search(rf'({re.escape(indent)}{last_year}:\s*"[^"]+",?)\n', content)
+        if not old_line_match:
+            print(f"  [{folder}] Could not locate last draft line — skipping.")
+            continue
+
+        old_line = old_line_match.group(0)
         new_line = f'{indent}{year}: "{did}",\n'
-        before_line = last_draft_line
-        after_line = last_draft_line + new_line
+        replacement = old_line + new_line
 
         changes.append({
             "folder": folder,
             "description": f"Add draft ID {year}: {did}",
-            "before_line": before_line.rstrip(),
-            "after_line": after_line.rstrip(),
-            "pattern": last_draft_line,
-            "replacement": last_draft_line + new_line,
+            "before_line": old_line.rstrip(),
+            "after_line": replacement.rstrip(),
+            "pattern": old_line,
+            "replacement": replacement,
         })
 
     if not show_preview(changes):

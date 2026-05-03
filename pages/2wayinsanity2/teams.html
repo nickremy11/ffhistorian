@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>2 Way Insanity — Team Rosters</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rye&family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream: #f5ead6; --parchment: #e8d5b0; --brown-dark: #2a1a0e;
+      --brown-mid: #5c3d1e; --brown-light: #8b5e2e; --green: #2d4a1e;
+      --green-light: #4a7a2f; --red: #8b1a1a; --gold: #c9962a;
+      --gold-light: #e8b84b; --ink: #1a1008;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: var(--cream); color: var(--ink);
+      font-family: 'Crimson Text', Georgia, serif; min-height: 100vh;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9962a' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.3;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
+    }
+    .page-wrap { position: relative; z-index: 1; }
+
+    /* ── BANNER ── */
+    .banner { background: var(--green); border-bottom: 6px double var(--gold); position: relative; overflow: hidden; }
+    .banner::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(0,0,0,0.06) 10px, rgba(0,0,0,0.06) 11px); }
+    .banner-inner { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 28px 32px 24px; display: flex; align-items: center; gap: 24px; }
+    .banner-logo { width: 72px; height: 72px; border-radius: 4px; border: 3px solid var(--gold); object-fit: contain; background: rgba(0,0,0,0.2); flex-shrink: 0; filter: drop-shadow(2px 3px 6px rgba(0,0,0,0.5)); }
+    .banner-text { flex: 1; }
+    .banner-back { font-family: 'Rye', serif; font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold-light); text-decoration: none; opacity: 0.75; display: inline-block; margin-bottom: 8px; }
+    .banner-back:hover { opacity: 1; }
+    .banner h1 { font-family: 'Rye', serif; font-size: clamp(1.3rem, 3vw, 2.2rem); color: var(--cream); text-shadow: 2px 2px 0 rgba(0,0,0,0.4); line-height: 1.1; }
+    .banner h1 span { color: var(--gold-light); }
+    .banner-sub { margin-top: 6px; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.9rem; color: var(--parchment); opacity: 0.75; }
+    .banner-divider { margin-top: 8px; height: 2px; width: 120px; background: linear-gradient(to right, var(--gold), transparent); }
+
+    /* ── SORT BAR ── */
+    .sort-bar { background: var(--brown-dark); border-bottom: 3px solid var(--gold); padding: 12px 32px; display: flex; align-items: center; gap: 16px; }
+    .sort-bar-inner { max-width: 1300px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .sort-label { font-family: 'Rye', serif; font-size: 0.55rem; letter-spacing: 0.2em; color: var(--gold); }
+    .sort-btn { background: none; border: 1px solid var(--brown-mid); font-family: 'Rye', serif; font-size: 0.55rem; letter-spacing: 0.15em; color: var(--parchment); opacity: 0.6; padding: 5px 12px; border-radius: 2px; cursor: pointer; transition: all 0.2s; }
+    .sort-btn:hover { opacity: 1; border-color: var(--gold); }
+    .sort-btn.active { opacity: 1; color: var(--gold-light); border-color: var(--gold-light); background: rgba(255,255,255,0.05); }
+    .expand-all-btn { margin-left: auto; background: none; border: 1px solid var(--brown-mid); font-family: 'Rye', serif; font-size: 0.55rem; letter-spacing: 0.15em; color: var(--parchment); opacity: 0.6; padding: 5px 12px; border-radius: 2px; cursor: pointer; transition: all 0.2s; }
+    .expand-all-btn:hover { opacity: 1; border-color: var(--gold); }
+
+    /* ── MAIN ── */
+    .main { max-width: 1300px; margin: 0 auto; padding: 32px 32px 80px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── TEAM CARD ── */
+    .team-card { background: var(--brown-dark); border: 2px solid var(--brown-mid); border-radius: 2px; overflow: hidden; box-shadow: 3px 3px 0 var(--brown-mid); }
+    .team-header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; cursor: pointer; user-select: none; transition: background 0.15s; border-bottom: 1px solid transparent; }
+    .team-header:hover { background: rgba(255,255,255,0.03); }
+    .team-header.open { border-bottom-color: var(--brown-mid); }
+    .team-chevron { font-size: 0.7rem; color: var(--gold); opacity: 0.7; transition: transform 0.25s; flex-shrink: 0; }
+    .team-header.open .team-chevron { transform: rotate(90deg); }
+    .team-name { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.1rem; color: var(--cream); flex: 1; }
+    .team-owner { font-family: 'Crimson Text', serif; font-size: 0.85rem; color: var(--brown-light); margin-left: 8px; }
+    .team-counts { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pos-badge { font-family: 'Rye', serif; font-size: 0.45rem; letter-spacing: 0.1em; padding: 3px 7px; border-radius: 2px; color: var(--cream); }
+    .pos-badge.QB  { background: #7b2d2d; }
+    .pos-badge.RB  { background: #2d5a2d; }
+    .pos-badge.WR  { background: #2d4a7b; }
+    .pos-badge.TE  { background: #7b5a2d; }
+    .pos-badge.DL  { background: #4a2d7b; }
+    .pos-badge.LB  { background: #2d6b6b; }
+    .pos-badge.DB  { background: #6b2d5a; }
+    .pos-badge.PK  { background: #5a5a2d; }
+
+    /* ── ROSTER GRID ── */
+    .team-body { display: none; padding: 20px; overflow-x: auto; }
+    .team-body.open { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .roster-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 12px; min-width: 900px; }
+    .pos-col { display: flex; flex-direction: column; gap: 0; }
+    .pos-col-header { font-family: 'Rye', serif; font-size: 0.55rem; letter-spacing: 0.2em; text-transform: uppercase; padding: 6px 8px; text-align: center; border-radius: 2px 2px 0 0; color: var(--cream); margin-bottom: 4px; }
+    .pos-col-header.QB  { background: #7b2d2d; }
+    .pos-col-header.RB  { background: #2d5a2d; }
+    .pos-col-header.WR  { background: #2d4a7b; }
+    .pos-col-header.TE  { background: #7b5a2d; }
+    .pos-col-header.DL  { background: #4a2d7b; }
+    .pos-col-header.LB  { background: #2d6b6b; }
+    .pos-col-header.DB  { background: #6b2d5a; }
+    .pos-col-header.PICKS { background: #5a5a2d; }
+    .player-item { padding: 5px 8px; font-family: 'Crimson Text', serif; font-size: 0.82rem; color: var(--parchment); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .player-item:last-child { border-bottom: none; }
+    .player-name { flex: 1; }
+    .player-name.taxi { opacity: 0.55; font-style: italic; }
+    .player-name.ir { opacity: 0.55; }
+    .player-tag { font-size: 0.65rem; padding: 1px 4px; border-radius: 2px; flex-shrink: 0; font-family: 'Rye', serif; letter-spacing: 0.05em; }
+    .player-tag.taxi { background: rgba(201,150,42,0.2); color: var(--gold); }
+    .player-tag.ir   { background: rgba(139,26,26,0.3); color: #e07070; }
+    .pick-item { padding: 5px 8px; font-family: 'Crimson Text', serif; font-size: 0.78rem; color: var(--parchment); border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .pick-item:last-child { border-bottom: none; }
+    .pick-year { font-family: 'Rye', serif; font-size: 0.5rem; letter-spacing: 0.15em; color: var(--gold); display: block; margin-bottom: 2px; }
+    .pick-rounds { font-size: 0.8rem; color: var(--parchment); }
+    .pick-traded { font-size: 0.75rem; color: var(--brown-light); font-style: italic; }
+    .empty-col { font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.8rem; color: var(--brown-light); padding: 8px; opacity: 0.5; }
+
+    /* ── UTILITY ── */
+    .loading { text-align: center; padding: 80px; font-family: 'Rye', serif; font-size: 0.75rem; letter-spacing: 0.3em; color: var(--brown-light); }
+    .spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid var(--brown-mid); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-msg { text-align: center; padding: 40px; color: var(--red); font-family: 'Playfair Display', serif; font-style: italic; }
+    footer { border-top: 3px double var(--brown-light); padding: 20px 32px; text-align: center; font-family: 'Crimson Text', serif; font-size: 0.85rem; color: var(--brown-light); background: var(--parchment); }
+
+    @media (max-width: 700px) {
+      .banner-inner { flex-direction: column; text-align: center; }
+      .sort-bar { padding: 10px 16px; }
+      .main { padding: 20px 12px 60px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <header class="banner">
+    <div class="banner-inner">
+      <img class="banner-logo" src="/assets/2wayinsanity2_logo.png" alt="2 Way Insanity Logo" onerror="this.style.display='none'"/>
+      <div class="banner-text">
+        <a class="banner-back" href="/2wayinsanity2">← League Home</a>
+        <h1>2 Way Insanity <span>— Team Rosters</span></h1>
+        <p class="banner-sub">All 14 rosters · Click a team name to expand</p>
+        <div class="banner-divider"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="sort-bar">
+    <div class="sort-bar-inner">
+      <span class="sort-label">Sort Players By:</span>
+      <button class="sort-btn active" onclick="setSort('adp', this)">ADP</button>
+      <button class="sort-btn" onclick="setSort('alpha', this)">Alphabetical</button>
+      <button class="expand-all-btn" id="expandAllBtn" onclick="toggleAll()">Expand All</button>
+    </div>
+  </div>
+
+  <main class="main" id="mainContent">
+    <div class="loading"><div class="spinner"></div><br/>Loading rosters from the archive…</div>
+  </main>
+
+  <footer>
+    <p>ffhistorian.com &nbsp;·&nbsp; Data via <a href="https://sleeper.com">Sleeper API</a> &nbsp;·&nbsp; Rosters refresh hourly during season</p>
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════
+const LEAGUE_ID   = "1312025056368418816"; // 2026 season (most current)
+const API_BASE    = "/api/league";
+const PICK_YEARS  = 3; // show next N draft years
+
+// ═══════════════════════════════════════════════════
+// POSITION LOGIC
+// ═══════════════════════════════════════════════════
+// Returns { col, star } for a player
+// col = which column they go in
+// star = true if LB-eligible dual position
+function classifyPosition(pos) {
+  if (!pos) return { col: null, star: false };
+
+  const p = pos.toUpperCase();
+
+  // Dual positions with LB
+  if ((p === "DL/LB" || p === "LB/DL")) return { col: "DL", star: true };
+  if ((p === "DB/LB" || p === "LB/DB")) return { col: "DB", star: true };
+
+  // Pure positions
+  if (p === "QB") return { col: "QB", star: false };
+  if (p === "RB") return { col: "RB", star: false };
+  if (p === "WR") return { col: "WR", star: false };
+  if (p === "TE") return { col: "TE", star: false };
+  if (p === "DL") return { col: "DL", star: false };
+  if (p === "LB") return { col: "LB", star: false };
+  if (p === "DB") return { col: "DB", star: false };
+  if (p === "K")  return { col: null, star: false }; // skip kickers
+
+  return { col: null, star: false };
+}
+
+const COL_ORDER = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS"];
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let playerMap   = {};  // player_id → player data
+let rosters     = [];  // raw roster objects
+let users       = [];  // raw user objects
+let allExpanded = false;
+let currentSort = "adp";
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    await Promise.all([
+      fetchPlayerMap(),
+      fetchRosters(),
+    ]);
+    renderAll();
+  } catch(e) {
+    document.getElementById("mainContent").innerHTML =
+      `<div class="error-msg">Failed to load roster data: ${e.message}</div>`;
+  }
+});
+
+async function fetchPlayerMap() {
+  const res = await fetch("/api/players");
+  if (!res.ok) throw new Error("Could not load player map");
+  playerMap = await res.json();
+}
+
+async function fetchRosters() {
+  const [r, u] = await Promise.all([
+    fetch(`${API_BASE}/${LEAGUE_ID}/rosters`).then(r => r.json()),
+    fetch(`${API_BASE}/${LEAGUE_ID}/users`).then(r => r.json()),
+  ]);
+  rosters = r;
+  users   = u;
+}
+
+// ═══════════════════════════════════════════════════
+// SORT
+// ═══════════════════════════════════════════════════
+function setSort(sort, btn) {
+  currentSort = sort;
+  document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderAll();
+}
+
+function sortPlayers(playerIds) {
+  return [...playerIds].sort((a, b) => {
+    const pa = playerMap[a], pb = playerMap[b];
+    if (currentSort === "adp") {
+      const adpA = pa?.search_rank ?? 9999;
+      const adpB = pb?.search_rank ?? 9999;
+      if (adpA !== adpB) return adpA - adpB;
+    }
+    // Alphabetical fallback
+    const nameA = pa?.full_name || a;
+    const nameB = pb?.full_name || b;
+    return nameA.localeCompare(nameB);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// PICKS LOGIC
+// ═══════════════════════════════════════════════════
+function buildPickDisplay(roster) {
+  const picks = roster.draft_picks || [];
+  if (!picks.length) return [];
+
+  // Determine the next N years to show
+  const currentYear = new Date().getFullYear();
+  const showYears = new Set();
+  for (let i = 0; i < PICK_YEARS; i++) showYears.add(currentYear + i);
+
+  // Separate own picks from traded (acquired) picks
+  // own = roster_id matches this roster AND previous_owner_id is null
+  // traded = previous_owner_id is not null (came from another team)
+  const ownByYear   = {};  // year → [round, ...]
+  const tradedPicks = [];  // { year, round, previousOwnerRosterId }
+
+  picks.forEach(p => {
+    const yr = parseInt(p.season);
+    if (!showYears.has(yr)) return;
+    if (!p.previous_owner_id) {
+      // Own pick
+      if (!ownByYear[yr]) ownByYear[yr] = [];
+      ownByYear[yr].push(p.round);
+    } else {
+      tradedPicks.push({ year: yr, round: p.round, fromRosterId: p.previous_owner_id });
+    }
+  });
+
+  const lines = [];
+
+  // Own picks grouped by year
+  [...showYears].sort().forEach(yr => {
+    if (!ownByYear[yr]) return;
+    const rounds = [...new Set(ownByYear[yr])].sort((a, b) => a - b);
+    const roundStr = rounds.map(r => `Rd ${r}`).join(", ");
+    lines.push({ type: "own", year: yr, rounds: roundStr });
+  });
+
+  // Traded picks — each on its own line with via attribution
+  tradedPicks.sort((a, b) => a.year - b.year || a.round - b.round).forEach(p => {
+    // Look up the previous owner name from their roster_id
+    const fromRoster = rosters.find(r => r.roster_id === p.fromRosterId);
+    const fromUser   = fromRoster ? users.find(u => u.user_id === fromRoster.owner_id) : null;
+    const fromName   = fromUser
+      ? (fromUser.metadata?.team_name || fromUser.display_name || "Unknown")
+      : `Roster ${p.fromRosterId}`;
+    lines.push({ type: "traded", year: p.year, round: p.round, from: fromName });
+  });
+
+  return lines;
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════
+function renderAll() {
+  const container = document.getElementById("mainContent");
+
+  // Build user map
+  const userMap = {};
+  users.forEach(u => { userMap[u.user_id] = u; });
+
+  // Sort rosters by team name
+  const sorted = [...rosters].sort((a, b) => {
+    const ua = userMap[a.owner_id], ub = userMap[b.owner_id];
+    const na = ua?.metadata?.team_name || ua?.display_name || "";
+    const nb = ub?.metadata?.team_name || ub?.display_name || "";
+    return na.localeCompare(nb);
+  });
+
+  container.innerHTML = sorted.map(roster => renderTeamCard(roster, userMap)).join("");
+}
+
+function renderTeamCard(roster, userMap) {
+  const user      = userMap[roster.owner_id];
+  const teamName  = user?.metadata?.team_name || user?.display_name || `Roster ${roster.roster_id}`;
+  const ownerName = user?.display_name || "";
+  const cardId    = `team-${roster.roster_id}`;
+
+  // Classify all players
+  const cols = { QB:[], RB:[], WR:[], TE:[], DL:[], LB:[], DB:[] };
+
+  const allPlayers = [
+    ...(roster.players || []).map(id => ({ id, status: "normal" })),
+    ...(roster.taxi    || []).map(id => ({ id, status: "taxi"   })),
+    ...(roster.reserve || []).map(id => ({ id, status: "ir"     })),
+  ];
+
+  // Deduplicate (player can appear in multiple arrays)
+  const seen = new Set();
+  const uniquePlayers = allPlayers.filter(p => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+
+  const sorted = sortPlayers(uniquePlayers.map(p => p.id));
+
+  sorted.forEach(id => {
+    const p      = playerMap[id];
+    const status = uniquePlayers.find(u => u.id === id)?.status || "normal";
+    const pos    = p?.fantasy_positions?.[0] || p?.position || "";
+    const { col, star } = classifyPosition(pos);
+    if (col && cols[col]) {
+      cols[col].push({ id, name: p?.full_name || id, star, status });
+    }
+  });
+
+  // Count badges
+  const badges = Object.entries(cols).map(([pos, players]) =>
+    players.length > 0
+      ? `<span class="pos-badge ${pos}">${pos} ${players.length}</span>`
+      : ""
+  ).join("");
+
+  // Build pick display
+  const pickLines = buildPickDisplay(roster);
+
+  // Render columns
+  const colsHtml = COL_ORDER.map(col => {
+    if (col === "PICKS") {
+      const picksHtml = pickLines.length
+        ? pickLines.map(p => {
+            if (p.type === "own") {
+              return `<div class="pick-item">
+                <span class="pick-year">${p.year}</span>
+                <span class="pick-rounds">${p.rounds}</span>
+              </div>`;
+            } else {
+              return `<div class="pick-item">
+                <span class="pick-traded">${p.year} Rd ${p.round} <em>via ${p.from}</em></span>
+              </div>`;
+            }
+          }).join("")
+        : `<div class="empty-col">None</div>`;
+
+      return `<div class="pos-col">
+        <div class="pos-col-header PICKS">Picks</div>
+        ${picksHtml}
+      </div>`;
+    }
+
+    const players = cols[col] || [];
+    const playersHtml = players.length
+      ? players.map(p => `
+          <div class="player-item">
+            <span class="player-name ${p.status !== "normal" ? p.status : ""}">${p.name}${p.star ? " *" : ""}</span>
+            ${p.status === "taxi" ? '<span class="player-tag taxi">TX</span>' : ""}
+            ${p.status === "ir"   ? '<span class="player-tag ir">IR</span>'   : ""}
+          </div>`).join("")
+      : `<div class="empty-col">—</div>`;
+
+    return `<div class="pos-col">
+      <div class="pos-col-header ${col}">${col}</div>
+      ${playersHtml}
+    </div>`;
+  }).join("");
+
+  return `
+    <div class="team-card" id="${cardId}">
+      <div class="team-header" onclick="toggleTeam('${cardId}')">
+        <span class="team-chevron">▶</span>
+        <span class="team-name">${teamName}</span>
+        <span class="team-owner">${ownerName !== teamName ? ownerName : ""}</span>
+        <div class="team-counts">${badges}</div>
+      </div>
+      <div class="team-body" id="${cardId}-body">
+        <div class="roster-grid">${colsHtml}</div>
+        <p style="margin-top:10px;font-family:'Crimson Text',serif;font-size:0.75rem;color:var(--brown-light);font-style:italic;">* LB eligible &nbsp;·&nbsp; TX = Taxi Squad &nbsp;·&nbsp; IR = Injured Reserve</p>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// EXPAND / COLLAPSE
+// ═══════════════════════════════════════════════════
+function toggleTeam(cardId) {
+  const header = document.querySelector(`#${cardId} .team-header`);
+  const body   = document.getElementById(`${cardId}-body`);
+  header.classList.toggle("open");
+  body.classList.toggle("open");
+}
+
+function toggleAll() {
+  allExpanded = !allExpanded;
+  document.querySelectorAll(".team-header").forEach(h => {
+    if (allExpanded) h.classList.add("open");
+    else h.classList.remove("open");
+  });
+  document.querySelectorAll(".team-body").forEach(b => {
+    if (allExpanded) b.classList.add("open");
+    else b.classList.remove("open");
+  });
+  document.getElementById("expandAllBtn").textContent = allExpanded ? "Collapse All" : "Expand All";
+}
+</script>
+</body>
+</html>
