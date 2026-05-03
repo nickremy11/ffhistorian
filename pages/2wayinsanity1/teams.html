@@ -204,6 +204,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       fetchRosters(),
     ]);
     renderAll();
+    // Debug — remove after checking
+      console.log("Sample players:", Object.entries(playerMap).filter(([,p]) => p?.position === "LB" || p?.fantasy_positions?.includes("LB")).slice(0,5).map(([id,p]) => ({ id, pos: p.position, fantasy_positions: p.fantasy_positions })));
+      console.log("Sample roster picks:", rosters[0]?.draft_picks);
   } catch(e) {
     document.getElementById("mainContent").innerHTML =
       `<div class="error-msg">Failed to load roster data: ${e.message}</div>`;
