@@ -185,7 +185,7 @@ function classifyPosition(player) {
   return { col: null, star: false };
 }
 
-const COL_ORDER = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS"];
+const COL_ORDER = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
 
 // ═══════════════════════════════════════════════════
 // STATE
@@ -204,8 +204,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     await Promise.all([
       fetchPlayerMap(),
       fetchRosters(),
-      console.log("Raw traded picks:", picks.slice(0, 3));
-      console.log("Roster IDs:", rosters.map(r => r.roster_id));
     ]);
     renderAll();
   } catch(e) {

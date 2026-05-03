@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>2 Way Insanity — Team Rosters</title>
+  <title>2 Way Insanity 2 — Team Rosters</title>
   <link href="https://fonts.googleapis.com/css2?family=Rye&family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
   <style>
     :root {
@@ -122,7 +122,7 @@
       <img class="banner-logo" src="/assets/2wayinsanity2_logo.png" alt="2 Way Insanity Logo" onerror="this.style.display='none'"/>
       <div class="banner-text">
         <a class="banner-back" href="/2wayinsanity2">← League Home</a>
-        <h1>2 Way Insanity <span>— Team Rosters</span></h1>
+        <h1>2 Way Insanity 2 <span>— Team Rosters</span></h1>
         <p class="banner-sub">All 14 rosters · Click a team name to expand</p>
         <div class="banner-divider"></div>
       </div>
@@ -161,29 +161,31 @@ const PICK_YEARS  = 3; // show next N draft years
 // Returns { col, star } for a player
 // col = which column they go in
 // star = true if LB-eligible dual position
-function classifyPosition(pos) {
-  if (!pos) return { col: null, star: false };
+function classifyPosition(player) {
+  if (!player) return { col: null, star: false };
+  const positions = player.fantasy_positions || [];
+  const hasDL = positions.includes("DL");
+  const hasLB = positions.includes("LB");
+  const hasDB = positions.includes("DB");
+  const hasS  = positions.includes("S");
+  const hasCB = positions.includes("CB");
 
-  const p = pos.toUpperCase();
+  if (hasDL && hasLB) return { col: "DL", star: true };
+  if ((hasDB || hasS || hasCB) && hasLB) return { col: "DB", star: true };
+  if (hasDL) return { col: "DL", star: false };
+  if (hasLB) return { col: "LB", star: false };
+  if (hasDB || hasS || hasCB) return { col: "DB", star: false };
 
-  // Dual positions with LB
-  if ((p === "DL/LB" || p === "LB/DL")) return { col: "DL", star: true };
-  if ((p === "DB/LB" || p === "LB/DB")) return { col: "DB", star: true };
-
-  // Pure positions
+  const primary = positions[0] || player.position || "";
+  const p = primary.toUpperCase();
   if (p === "QB") return { col: "QB", star: false };
   if (p === "RB") return { col: "RB", star: false };
   if (p === "WR") return { col: "WR", star: false };
   if (p === "TE") return { col: "TE", star: false };
-  if (p === "DL") return { col: "DL", star: false };
-  if (p === "LB") return { col: "LB", star: false };
-  if (p === "DB") return { col: "DB", star: false };
-  if (p === "K")  return { col: null, star: false }; // skip kickers
-
   return { col: null, star: false };
 }
 
-const COL_ORDER = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS"];
+const COL_ORDER = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
 
 // ═══════════════════════════════════════════════════
 // STATE
@@ -354,7 +356,7 @@ function renderTeamCard(roster, userMap) {
     const p      = playerMap[id];
     const status = uniquePlayers.find(u => u.id === id)?.status || "normal";
     const pos    = p?.fantasy_positions?.[0] || p?.position || "";
-    const { col, star } = classifyPosition(pos);
+    const { col, star } = classifyPosition(p);
     if (col && cols[col]) {
       cols[col].push({ id, name: p?.full_name || id, star, status });
     }
