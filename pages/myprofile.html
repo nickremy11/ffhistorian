@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Profile — FF Historian</title>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --cream:        #f5ead6;
+  --parchment:    #e8d5b0;
+  --brown-dark:   #2a1a0e;
+  --brown-mid:    #5c3d1e;
+  --brown-light:  #8b5e2e;
+  --green:        #2d4a1e;
+  --green-light:  #4a7a2f;
+  --red:          #8b1a1a;
+  --gold:         #c9962a;
+  --gold-light:   #e8b84b;
+  --ink:          #1a1008;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background-color: var(--cream);
+  color: var(--ink);
+  font-family: 'Crimson Text', Georgia, serif;
+  min-height: 100vh;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9962a' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.3;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
+}
+.page-wrap { position: relative; z-index: 1; }
+
+/* ── BANNER ── */
+.banner { background: var(--green); border-bottom: 6px double var(--gold); position: relative; overflow: hidden; }
+.banner::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(0,0,0,0.06) 10px, rgba(0,0,0,0.06) 11px);
+}
+.banner-inner {
+  position: relative; z-index: 1;
+  max-width: 700px; margin: 0 auto;
+  padding: 24px 32px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.banner-text { flex: 1; }
+.banner-back {
+  font-family: 'Rye', serif; font-size: 0.58rem; letter-spacing: 0.3em;
+  text-transform: uppercase; color: var(--gold-light); text-decoration: none;
+  opacity: 0.7; display: inline-block; margin-bottom: 8px;
+}
+.banner-back:hover { opacity: 1; }
+.banner h1 { font-family: 'Rye', serif; font-size: clamp(1.2rem, 3vw, 1.9rem); color: var(--cream); text-shadow: 2px 2px 0 rgba(0,0,0,0.4); line-height: 1.1; }
+.banner h1 span { color: var(--gold-light); }
+.banner-sub { margin-top: 5px; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.85rem; color: var(--parchment); opacity: 0.75; }
+.banner-divider { margin-top: 8px; height: 2px; width: 100px; background: linear-gradient(to right, var(--gold), transparent); }
+
+/* ── MAIN ── */
+.main { max-width: 700px; margin: 0 auto; padding: 32px 32px 80px; }
+
+/* ── SECTION HEAD ── */
+.section-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; margin-top: 32px; }
+.section-head:first-child { margin-top: 0; }
+.section-head h2 { font-family: 'Rye', serif; font-size: 1rem; color: var(--brown-dark); white-space: nowrap; }
+.section-head-line { flex: 1; height: 1px; background: linear-gradient(to right, var(--gold), transparent); }
+
+/* ── PROFILE CARD ── */
+.profile-card {
+  background: var(--brown-dark); border: 2px solid var(--brown-mid); border-radius: 2px;
+  padding: 20px 24px; margin-bottom: 10px; box-shadow: 4px 4px 0 var(--brown-mid);
+}
+.field-label {
+  font-family: 'Rye', serif; font-size: 0.55rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--gold); display: block; margin-bottom: 7px;
+}
+.field-label-sub { font-family: 'Crimson Text', serif; font-size: 0.82rem; color: var(--brown-light); font-style: italic; margin-left: 8px; letter-spacing: 0; text-transform: none; }
+.field-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.field-row:last-child { margin-bottom: 0; }
+.field-input {
+  flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--brown-mid);
+  color: var(--cream); font-family: 'Crimson Text', serif; font-size: 1rem;
+  padding: 8px 12px; border-radius: 2px; outline: none; transition: border-color 0.2s;
+}
+.field-input:focus { border-color: var(--gold); }
+.field-input::placeholder { color: rgba(255,255,255,0.25); font-style: italic; }
+.field-input:read-only { opacity: 0.55; cursor: default; }
+.field-btn {
+  background: var(--green); border: 2px solid var(--gold); color: var(--gold-light);
+  font-family: 'Rye', serif; font-size: 0.55rem; letter-spacing: 0.18em;
+  text-transform: uppercase; padding: 0 16px; cursor: pointer; border-radius: 2px;
+  transition: background 0.2s, color 0.2s; white-space: nowrap;
+}
+.field-btn:hover { background: var(--gold); color: var(--brown-dark); }
+.field-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.field-status { font-family: 'Crimson Text', serif; font-size: 0.85rem; font-style: italic; color: var(--brown-light); min-height: 20px; margin-top: 4px; }
+.field-status.ok  { color: var(--green-light); }
+.field-status.err { color: var(--red); }
+.field-divider { border: none; border-top: 1px solid var(--brown-mid); margin: 16px 0; }
+.token-saved-row { margin-bottom: 8px; }
+.token-saved-msg {
+  font-family: 'Crimson Text', serif; font-size: 0.88rem; font-style: italic;
+  color: var(--green-light); margin-bottom: 8px;
+}
+.ghost-btn {
+  background: none; border: 1px solid var(--brown-mid); color: var(--brown-light);
+  font-family: 'Crimson Text', serif; font-size: 0.82rem; padding: 4px 12px;
+  cursor: pointer; border-radius: 2px; transition: border-color 0.2s, color 0.2s;
+}
+.ghost-btn:hover { border-color: var(--gold); color: var(--gold-light); }
+
+/* ── GUEST STATE ── */
+.guest-card {
+  background: var(--brown-dark); border: 2px solid var(--gold); border-radius: 2px;
+  padding: 32px; text-align: center; margin-top: 48px;
+}
+.guest-card p {
+  font-family: 'Playfair Display', serif; font-style: italic;
+  font-size: 1.1rem; color: var(--parchment); margin-bottom: 20px;
+}
+.guest-signin-btn {
+  background: var(--green); border: 2px solid var(--gold); color: var(--gold-light);
+  font-family: 'Rye', serif; font-size: 0.58rem; letter-spacing: 0.18em;
+  text-transform: uppercase; padding: 12px 28px; cursor: pointer; border-radius: 2px;
+  transition: background 0.2s, color 0.2s;
+}
+.guest-signin-btn:hover { background: var(--gold); color: var(--brown-dark); }
+
+footer {
+  text-align: center; padding: 32px 0 20px;
+  font-family: 'Crimson Text', serif; font-size: 0.85rem; color: var(--brown-light); opacity: 0.7;
+}
+footer a { color: var(--brown-light); text-decoration: none; }
+footer a:hover { color: var(--gold-light); }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <header class="banner">
+    <div class="banner-inner">
+      <div class="banner-text">
+        <a href="https://helper.ffhistorian.com" class="banner-back">← Sleeper Helper</a>
+        <h1>My <span>Profile</span></h1>
+        <div class="banner-sub">Account settings &amp; Sleeper integration</div>
+        <div class="banner-divider"></div>
+      </div>
+      <div id="auth-chip" style="flex-shrink:0;"></div>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <!-- Guest state (shown when not signed in) -->
+    <div id="guest-view" style="display:none;">
+      <div class="guest-card">
+        <p>Sign in to view and edit your profile.</p>
+        <button class="guest-signin-btn" onclick="SharedAuth.openModal()">Sign In</button>
+      </div>
+    </div>
+
+    <!-- Profile sections (shown when signed in) -->
+    <div id="profile-view" style="display:none;">
+
+      <div class="section-head">
+        <h2>Account Information</h2>
+        <div class="section-head-line"></div>
+      </div>
+      <div class="profile-card">
+        <label class="field-label">Email <span class="field-label-sub">— cannot be changed</span></label>
+        <div class="field-row">
+          <input type="email" id="field-email" class="field-input" readonly />
+        </div>
+        <hr class="field-divider" />
+        <label class="field-label">Display Name <span class="field-label-sub">— shown instead of email in the "Signed in as" chip</span></label>
+        <div class="field-row">
+          <input type="text" id="field-name" class="field-input" placeholder="Your name…" maxlength="64" />
+          <button class="field-btn" onclick="saveName()">Save</button>
+        </div>
+        <div class="field-status" id="name-status"></div>
+      </div>
+
+      <div class="section-head">
+        <h2>Sleeper Integration</h2>
+        <div class="section-head-line"></div>
+      </div>
+      <div class="profile-card">
+        <label class="field-label">Sleeper Username</label>
+        <div class="field-row">
+          <input type="text" id="field-username" class="field-input" placeholder="your sleeper username…" />
+          <button class="field-btn" onclick="saveUsername()">Save</button>
+        </div>
+        <div class="field-status" id="username-status"></div>
+        <hr class="field-divider" />
+        <label class="field-label">Auth Token <span class="field-label-sub">— enables pending trades across all pages</span></label>
+        <div id="token-saved-row" class="token-saved-row" style="display:none;">
+          <div class="token-saved-msg">&#x2714; Token saved to your account</div>
+          <button class="ghost-btn" onclick="showReplaceToken()">Replace token</button>
+        </div>
+        <div id="token-input-row">
+          <div class="field-row">
+            <input type="password" id="field-token" class="field-input" placeholder="sleeper.com → DevTools → Network → any graphql request → Authorization header…" />
+            <button class="field-btn" onclick="saveToken()">Save</button>
+          </div>
+          <div class="field-status" id="token-status"></div>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>Password</h2>
+        <div class="section-head-line"></div>
+      </div>
+      <div class="profile-card">
+        <label class="field-label">Current Password</label>
+        <div class="field-row">
+          <input type="password" id="field-cur-pass" class="field-input" placeholder="••••••••" />
+        </div>
+        <label class="field-label">New Password</label>
+        <div class="field-row">
+          <input type="password" id="field-new-pass" class="field-input" placeholder="min 12 chars, uppercase, lowercase, number, symbol" />
+        </div>
+        <label class="field-label">Confirm New Password</label>
+        <div class="field-row">
+          <input type="password" id="field-new-pass2" class="field-input" placeholder="••••••••" />
+        </div>
+        <div class="field-row" style="margin-bottom:0;">
+          <button class="field-btn" style="width:100%;" onclick="changePassword()">Change Password</button>
+        </div>
+        <div class="field-status" id="password-status"></div>
+      </div>
+
+    </div><!-- /profile-view -->
+
+    <footer>
+      <a href="https://ffhistorian.com">ffhistorian.com</a>
+    </footer>
+  </div>
+</div>
+
+<script src="/shared-auth.js"></script>
+<script>
+async function populateFields(user) {
+  document.getElementById('field-email').value    = user.email || '';
+  document.getElementById('field-name').value     = user.name  || '';
+  document.getElementById('field-username').value = user.sleeper_username || '';
+  updateTokenRow(user.has_token);
+}
+
+function updateTokenRow(hasToken) {
+  document.getElementById('token-saved-row').style.display = hasToken ? '' : 'none';
+  document.getElementById('token-input-row').style.display = hasToken ? 'none' : '';
+}
+
+function showReplaceToken() {
+  document.getElementById('token-saved-row').style.display = 'none';
+  document.getElementById('token-input-row').style.display = '';
+  document.getElementById('field-token').value = '';
+  document.getElementById('token-status').textContent = '';
+}
+
+function showProfile(user) {
+  document.getElementById('guest-view').style.display   = 'none';
+  document.getElementById('profile-view').style.display = '';
+  populateFields(user);
+}
+
+function showGuest() {
+  document.getElementById('guest-view').style.display   = '';
+  document.getElementById('profile-view').style.display = 'none';
+}
+
+const API_BASE = location.hostname === 'ffhistorian.com' ? 'https://helper.ffhistorian.com/api' : '/api';
+
+async function apiPatch(body) {
+  const r = await fetch(API_BASE + '/auth/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error);
+  return d;
+}
+
+function setStatus(id, msg, isOk) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className   = 'field-status ' + (isOk ? 'ok' : 'err');
+  if (msg) setTimeout(function () { if (el.textContent === msg) el.textContent = ''; }, 4000);
+}
+
+async function saveName() {
+  const val = document.getElementById('field-name').value.trim();
+  try {
+    await apiPatch({ name: val });
+    setStatus('name-status', 'Saved', true);
+  } catch(e) { setStatus('name-status', e.message, false); }
+}
+
+async function saveUsername() {
+  const val = document.getElementById('field-username').value.trim();
+  try {
+    await apiPatch({ sleeper_username: val || null });
+    setStatus('username-status', 'Saved', true);
+  } catch(e) { setStatus('username-status', e.message, false); }
+}
+
+async function saveToken() {
+  const val = document.getElementById('field-token').value.trim();
+  if (!val) { setStatus('token-status', 'Paste your token first', false); return; }
+  try {
+    await apiPatch({ token: val });
+    document.getElementById('field-token').value = '';
+    updateTokenRow(true);
+    setStatus('token-status', '', true);
+  } catch(e) { setStatus('token-status', e.message, false); }
+}
+
+async function changePassword() {
+  const cur  = document.getElementById('field-cur-pass').value;
+  const nw   = document.getElementById('field-new-pass').value;
+  const nw2  = document.getElementById('field-new-pass2').value;
+  if (!cur || !nw) { setStatus('password-status', 'All fields are required', false); return; }
+  if (nw !== nw2)  { setStatus('password-status', 'New passwords do not match', false); return; }
+  try {
+    const r = await fetch(API_BASE + '/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ currentPassword: cur, newPassword: nw }),
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('field-cur-pass').value  = '';
+    document.getElementById('field-new-pass').value  = '';
+    document.getElementById('field-new-pass2').value = '';
+    setStatus('password-status', 'Password changed successfully', true);
+  } catch(e) { setStatus('password-status', e.message, false); }
+}
+
+(async function init() {
+  const user = await SharedAuth.init({
+    chipContainerId: 'auth-chip',
+    onLogin:  function(u) { showProfile(u); },
+    onLogout: function()  { showGuest(); },
+  });
+  if (user) {
+    showProfile(user);
+  } else {
+    showGuest();
+    SharedAuth.openModal();
+  }
+})();
+</script>
+</body>
+</html>
