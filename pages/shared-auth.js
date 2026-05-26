@@ -115,7 +115,7 @@
       container.innerHTML =
         '<span class="sh-chip sh-signed-in">' +
           'Signed in as <strong style="margin-left:4px;">' + displayName + '</strong>' +
-          '<a href="https://ffhistorian.com/myprofile" class="sh-profile-link">View my profile</a>' +
+          '<a href="/myprofile" class="sh-profile-link">View my profile</a>' +
           '<a href="#" class="sh-signout-link" onclick="SharedAuth._logout();return false;">Sign out</a>' +
         '</span>';
     } else {
