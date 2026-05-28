@@ -187,8 +187,9 @@
     var err   = document.getElementById('sh-err-l');
     err.style.display = 'none';
     try {
-      await _authPost(_apiBase + '/auth/login', { email: email, password: pass });
-      await _refreshUser();
+      var data = await _authPost(_apiBase + '/auth/login', { email: email, password: pass });
+      _user = (data && data.user) || null;
+      if (!_user) await _refreshUser();
       _renderChip();
       _closeModal();
       _loginCbs.forEach(function (cb) { cb(_user); });
@@ -203,8 +204,9 @@
     err.style.display = 'none';
     if (pass !== pass2) { err.textContent = 'Passwords do not match'; err.style.display = 'block'; return; }
     try {
-      await _authPost(_apiBase + '/auth/register', { email: email, password: pass });
-      await _refreshUser();
+      var data = await _authPost(_apiBase + '/auth/register', { email: email, password: pass });
+      _user = (data && data.user) || null;
+      if (!_user) await _refreshUser();
       _renderChip();
       _closeModal();
       _loginCbs.forEach(function (cb) { cb(_user); });
