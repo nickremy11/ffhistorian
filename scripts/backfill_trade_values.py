@@ -28,6 +28,7 @@ import io
 import json
 import os
 import re
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -39,8 +40,11 @@ from datetime import datetime, timezone
 CUTOFF = datetime(2026, 7, 1, tzinfo=timezone.utc)
 CUTOFF_MS = int(CUTOFF.timestamp() * 1000)
 
-WORKER_BASE = "https://ffhistorian.com/api/league"
-R2_BUCKET   = "ff-historian-espn"          # shared R2 bucket (trade-values/ prefix)
+# ffhistorian.com is behind Cloudflare's bot challenge (403s scripts), so we hit
+# Sleeper directly for trades/players and use wrangler for R2 reads/writes.
+SLEEPER_BASE = "https://api.sleeper.app/v1"
+R2_BUCKET    = "ff-historian-espn"          # shared R2 bucket (trade-values/ prefix)
+WORKER_DIR   = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "worker"))
 DP_REPO        = "https://github.com/dynastyprocess/data.git"
 DP_PLAYER_PATHS = ["files/values-players.csv", "files/values.csv"]  # players carry value_2qb
 DP_PICK_PATHS   = ["files/values-picks.csv"]                        # picks carry only ECR — converted below
@@ -60,9 +64,64 @@ LEAGUES = {
 
 # ─── HTTP ──────────────────────────────────────────────────────────────────────
 
+def _ssl_ctx():
+    # python.org Python on macOS doesn't trust system certs; use certifi if present.
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+_SSL = _ssl_ctx()
+
 def get_json(url):
-    with urllib.request.urlopen(url, timeout=60) as r:
+    req = urllib.request.Request(url, headers={"User-Agent": "ffhistorian-backfill/1.0"})
+    with urllib.request.urlopen(req, timeout=60, context=_SSL) as r:
         return json.loads(r.read().decode("utf-8"))
+
+
+def fetch_trades(lid):
+    """All completed trades for a league, aggregated directly from Sleeper (no Cloudflare)."""
+    trades = []
+    for wk in range(1, 19):
+        try:
+            txns = get_json(f"{SLEEPER_BASE}/league/{lid}/transactions/{wk}")
+        except Exception:
+            continue
+        for tx in (txns or []):
+            if tx.get("type") == "trade" and tx.get("status") == "complete":
+                trades.append(tx)
+    return trades
+
+
+def _wrangler(args):
+    return subprocess.run(["npx", "wrangler", *args], cwd=WORKER_DIR,
+                          capture_output=True, text=True)
+
+
+def read_r2_json(key):
+    """Read trade-values/{lid}.json from R2 via wrangler; {} if absent."""
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+        tmp = tf.name
+    try:
+        r = _wrangler(["r2", "object", "get", f"{R2_BUCKET}/{key}", "--file", tmp, "--remote"])
+        if r.returncode != 0:
+            return {}
+        with open(tmp) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+    finally:
+        try: os.remove(tmp)
+        except OSError: pass
+
+
+def write_r2_json(key, path):
+    r = _wrangler(["r2", "object", "put", f"{R2_BUCKET}/{key}",
+                   "--file", path, "--content-type", "application/json", "--remote"])
+    if r.returncode != 0:
+        print(f"  ! wrangler put failed for {key}:\n{r.stderr.strip()}")
+    return r.returncode == 0
 
 # ─── DP git-history snapshots (cached per date) ────────────────────────────────
 
@@ -231,9 +290,9 @@ def _ecr_to_value(ecr, curve):
 # ─── Backfill ──────────────────────────────────────────────────────────────────
 
 def build_name_to_pid():
-    """Sleeper full_name -> player_id, for DP rows lacking a sleeper_id."""
+    """Sleeper full_name -> player_id (DP rows have no sleeper_id, so we match by name)."""
     print("Fetching Sleeper player map…")
-    players = get_json("https://ffhistorian.com/api/players")
+    players = get_json(f"{SLEEPER_BASE}/players/nfl")
     out = {}
     for pid, p in players.items():
         nm = p.get("full_name")
@@ -246,17 +305,13 @@ def backfill_league(folder, seasons, dp, name_to_pid):
     by_league = {}  # leagueId -> merged frozen dict
     for year, lid in sorted(seasons.items()):
         try:
-            trades = get_json(f"{WORKER_BASE}/{lid}/trades")
+            trades = fetch_trades(lid)
         except Exception as e:
             print(f"  {year} ({lid}): trades fetch failed: {e}")
             continue
 
-        # Start from whatever's already stored so we never clobber FC entries.
-        try:
-            existing = get_json(f"{WORKER_BASE}/{lid}/trade-values")
-        except Exception:
-            existing = {}
-        frozen = dict(existing)
+        # Start from whatever's already in R2 so we never clobber FC entries.
+        frozen = dict(read_r2_json(f"trade-values/{lid}.json"))
 
         added = 0
         for tx in trades:
@@ -310,7 +365,7 @@ def main():
         dp = DPHistory(repo_dir)
 
         targets = {args.league: LEAGUES[args.league]} if args.league else LEAGUES
-        upload_cmds = []
+        written = []
         for folder, seasons in targets.items():
             print(f"\n=== {folder} ===")
             by_league = backfill_league(folder, seasons, dp, name_to_pid)
@@ -318,20 +373,16 @@ def main():
                 out_path = os.path.join(OUT_DIR, f"{lid}.json")
                 with open(out_path, "w") as f:
                     json.dump(frozen, f)
-                upload_cmds.append(
-                    f'wrangler r2 object put {R2_BUCKET}/trade-values/{lid}.json '
-                    f'--file="{out_path}" --content-type=application/json --remote'
-                )
+                written.append((lid, out_path))
 
-    print("\nWrote files to", OUT_DIR)
-    print("\nUpload to R2 with:")
-    for c in upload_cmds:
-        print("  " + c)
-
-    if args.upload:
-        print("\nUploading…")
-        for c in upload_cmds:
-            subprocess.run(c, shell=True, check=False)
+        print("\nWrote files to", OUT_DIR)
+        if args.upload:
+            print("\nUploading to R2 via wrangler…")
+            for lid, path in written:
+                ok = write_r2_json(f"trade-values/{lid}.json", path)
+                print(f"  {'✓' if ok else '✗'} trade-values/{lid}.json")
+        else:
+            print("\nRe-run with --upload to push these to R2.")
 
 
 if __name__ == "__main__":
