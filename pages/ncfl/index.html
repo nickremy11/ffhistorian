@@ -248,6 +248,16 @@
     .trade-assets { list-style: none; }
     .trade-assets li { font-family: 'Crimson Text', serif; font-size: 0.95rem; color: var(--parchment); padding: 2px 0; border-bottom: 1px dashed rgba(255,255,255,0.08); }
     .trade-arrow { align-self: center; font-size: 1.4rem; color: var(--gold); opacity: 0.7; }
+    /* Trade market values (then vs now) */
+    .trade-value { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-family: 'Crimson Text', serif; font-size: 0.85rem; }
+    .tv-then { color: var(--parchment); opacity: 0.7; }
+    .tv-now  { color: var(--cream); font-weight: 700; }
+    .tv-arrow { color: var(--gold); opacity: 0.6; font-size: 0.9rem; }
+    .tv-delta { font-weight: 700; padding: 1px 7px; border-radius: 10px; font-size: 0.78rem; }
+    .tv-delta.up   { color: #0b3d1e; background: #7bc47f; }
+    .tv-delta.down { color: #4a0d0d; background: #d98a8a; }
+    .tv-delta.flat { color: var(--cream); background: var(--brown-mid); }
+    .trade-market-src { margin-top: 10px; font-family: 'Crimson Text', serif; font-size: 0.72rem; color: var(--gold); opacity: 0.65; font-style: italic; }
 
     /* ── RECORDS TAB ── */
     .records-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
@@ -504,6 +514,71 @@ let allOwnerIds = [];
 let playerMap = {};       // { player_id: { full_name, position, team } }
 let draftPickMap = {};    // { "leagueId:season:round:rosterId": "1.06 — Patrick Mahomes (QB)" }
 
+// ── Trade Market state ───────────────────────────────────
+const FC_TODAY_URL = "https://helper.ffhistorian.com/api/fantasycalc"; // live FantasyCalc (CORS allows ffhistorian.com)
+let fcToday = null;             // { players: {sleeperId: value}, picks: {year_round[_q]: value} } | "error"
+let tradeValueCache = {};       // { leagueId: { [txId]: frozenRecord } }
+
+// Fetch + parse live FantasyCalc once → "today" values for the market
+async function loadFcToday() {
+  if (fcToday) return fcToday;
+  try {
+    const arr = await fetch(FC_TODAY_URL).then(r => r.json());
+    const players = {}, picks = {};
+    for (const item of arr) {
+      const sid = item.player?.sleeperId || item.player?.maybeSleeperID;
+      const pos = (item.player?.position || "").toUpperCase();
+      const isPick = pos === "PI" || pos === "PICK" || !sid || String(sid) === "0";
+      if (!isPick) { players[String(sid)] = item.value; continue; }
+      const name = (item.player?.name || "").toLowerCase();
+      const ym = name.match(/20(\d\d)/);
+      if (!ym) continue;
+      const year = "20" + ym[1];
+      let round = 0;
+      if      (/\b1(st)?\b/.test(name) || /first/.test(name))  round = 1;
+      else if (/\b2(nd)?\b/.test(name) || /second/.test(name)) round = 2;
+      else if (/\b3(rd)?\b/.test(name) || /third/.test(name))  round = 3;
+      else if (/\b4(th)?\b/.test(name) || /fourth/.test(name)) round = 4;
+      else if (/\b5(th)?\b/.test(name) || /fifth/.test(name))  round = 5;
+      else if (/\b6(th)?\b/.test(name) || /sixth/.test(name))  round = 6;
+      if (!round) continue;
+      let q = "mid";
+      if (/early/.test(name)) q = "early";
+      else if (/late/.test(name)) q = "late";
+      picks[`${year}_${round}_${q}`] = item.value;
+      if (!picks[`${year}_${round}`] || item.value > picks[`${year}_${round}`]) {
+        picks[`${year}_${round}`] = item.value;
+      }
+    }
+    fcToday = { players, picks };
+  } catch (e) {
+    console.warn("FantasyCalc (today) load failed:", e.message);
+    fcToday = "error";
+  }
+  return fcToday;
+}
+
+// Frozen day-of values for a league (DP backfill + FC freeze-on-read), cached per league
+async function loadTradeValues(leagueId) {
+  if (tradeValueCache[leagueId]) return tradeValueCache[leagueId];
+  try {
+    tradeValueCache[leagueId] = await apiFetch(`/${leagueId}/trade-values`);
+  } catch (e) {
+    console.warn(`Trade values fetch failed for ${leagueId}:`, e.message);
+    tradeValueCache[leagueId] = {};
+  }
+  return tradeValueCache[leagueId];
+}
+
+// Generic (slot-unknown / future) pick value from a FantasyCalc pick map
+function fcGenericPick(season, round, picks) {
+  if (!picks || round > 6) return 0;
+  return picks[`${season}_${round}_mid`]
+      || picks[`${season}_${round}`]
+      || picks[`${season}_${round}_early`]
+      || 0;
+}
+
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
@@ -596,6 +671,7 @@ async function buildDraftPickMap() {
         const drafted = pick.player_id ? playerName(pick.player_id) : null;
         const key = `${year}:${pick.round}:${slotInRound}`;
         draftPickMap[key] = drafted ? `${year} ${slot} — ${drafted}` : `${year} ${slot}`;
+        if (pick.player_id) draftPickMap[`pid:${key}`] = String(pick.player_id);
       });
 
     } catch(e) {
@@ -622,6 +698,13 @@ function resolveDraftPick(pick) {
 
   // Fallback if draft_order wasn't available
   return `${pick.season} Round ${pick.round} Pick`;
+}
+
+// Returns the sleeper player_id a traded pick converted into (drafted), or null if not yet drafted
+function resolvePickPid(pick) {
+  const originalSlot = draftPickMap[`slot:${pick.season}:${pick.roster_id}`];
+  if (originalSlot === undefined) return null;
+  return draftPickMap[`pid:${pick.season}:${pick.round}:${originalSlot}`] || null;
 }
 
 function playerName(playerId) {
@@ -1103,6 +1186,55 @@ function loadH2H() {
 // ═══════════════════════════════════════════════════
 // TRADES
 // ═══════════════════════════════════════════════════
+// ── Trade Market helpers ─────────────────────────────────
+// Sum the day-of ("then") and current ("now") value of everything one roster received
+function computeSideValue(tx, sideRid, frozenRec) {
+  const fc = (fcToday && fcToday !== "error") ? fcToday : null;
+  let then = 0, now = 0;
+  for (const [pid, rid] of Object.entries(tx.adds || {})) {
+    if (rid !== sideRid) continue;
+    if (frozenRec) then += (frozenRec.players?.[pid] || 0);
+    if (fc) now += (fc.players[pid] || 0);
+  }
+  for (const p of (tx.draft_picks || [])) {
+    if (p.owner_id !== sideRid) continue;
+    if (frozenRec) then += (frozenRec.picks?.[`${p.season}:${p.round}:${p.roster_id}`] || 0);
+    if (fc) {
+      const pid = resolvePickPid(p); // converted pick → drafted player's current value
+      now += pid ? (fc.players[pid] || 0) : fcGenericPick(p.season, p.round, fc.picks);
+    }
+  }
+  return { then: Math.round(then), now: Math.round(now), hasThen: !!frozenRec, hasNow: !!fc };
+}
+
+function valueBarHtml(v) {
+  if (!v.hasThen && !v.hasNow) return "";
+  const fmt = n => n.toLocaleString("en-US");
+  const thenStr = v.hasThen ? `<span class="tv-then">Then ${fmt(v.then)}</span>` : "";
+  const nowStr  = v.hasNow  ? `<span class="tv-now">Now ${fmt(v.now)}</span>`   : "";
+  let delta = "";
+  if (v.hasThen && v.hasNow && v.then > 0) {
+    const pct = Math.round(((v.now - v.then) / v.then) * 100);
+    const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+    const sign = pct > 0 ? "+" : "";
+    delta = `<span class="tv-delta ${cls}">${sign}${pct}%</span>`;
+  }
+  const sep = (thenStr && nowStr) ? `<span class="tv-arrow">→</span>` : "";
+  return `<div class="trade-value">${thenStr}${sep}${nowStr}${delta}</div>`;
+}
+
+function marketSourceCaption(frozenRec) {
+  if (!frozenRec) {
+    return (fcToday && fcToday !== "error")
+      ? `<em>Day-of value unavailable — showing current FantasyCalc only</em>`
+      : "";
+  }
+  const label = frozenRec.source === "DP"
+    ? "DynastyProcess (historical, pre Jul 2026)"
+    : "FantasyCalc";
+  return `Day-of values: ${label} · “Now” from live FantasyCalc`;
+}
+
 async function loadTrades() {
   const uid1 = document.getElementById("tradeOwner1").value;
   const uid2 = document.getElementById("tradeOwner2").value;
@@ -1147,10 +1279,10 @@ async function loadTrades() {
             const otherRawUid = sd.rosterUserMap[otherRid];
             const otherUid = otherRawUid ? canonicalUserId(otherRawUid) : null;
             const otherName = otherUid ? (ownerMap[otherUid]?.display_name || otherUid) : `Roster ${otherRid}`;
-            foundTrades.push({ year, tx, r1id: r1.roster_id, r2id: otherRid, name2: otherName });
+            foundTrades.push({ year, lid, tx, r1id: r1.roster_id, r2id: otherRid, name2: otherName });
           });
         } else {
-          foundTrades.push({ year, tx, r1id: r1.roster_id, r2id: r2.roster_id, name2 });
+          foundTrades.push({ year, lid, tx, r1id: r1.roster_id, r2id: r2.roster_id, name2 });
         }
       });
     } catch (e) {
@@ -1168,6 +1300,11 @@ async function loadTrades() {
 
   foundTrades.sort((a, b) => (b.tx.status_updated || 0) - (a.tx.status_updated || 0));
 
+  // Load market data: live FC ("now") once + frozen day-of values per involved league
+  await loadFcToday();
+  const lids = [...new Set(foundTrades.map(t => t.lid))];
+  await Promise.all(lids.map(loadTradeValues));
+
   let html = `<div class="trade-timeline">`;
 
   foundTrades.forEach((t, idx) => {
@@ -1184,6 +1321,12 @@ async function loadTrades() {
     const assets1 = [...adds1, ...picks1];
     const assets2 = [...adds2, ...picks2];
 
+    // ── Market values (then vs now) ──
+    const frozenRec = tradeValueCache[t.lid]?.[tx.transaction_id];
+    const v1 = computeSideValue(tx, t.r1id, frozenRec);
+    const v2 = computeSideValue(tx, t.r2id, frozenRec);
+    const srcCaption = marketSourceCaption(frozenRec);
+
     html += `
       <div class="trade-item">
         <div class="trade-timeline-line">
@@ -1199,6 +1342,7 @@ async function loadTrades() {
               <ul class="trade-assets">
                 ${assets1.length ? assets1.map(a => `<li>${a}</li>`).join("") : "<li><em>No players or picks</em></li>"}
               </ul>
+              ${valueBarHtml(v1)}
             </div>
             <div class="trade-arrow">⇄</div>
             <div class="trade-side">
@@ -1207,8 +1351,10 @@ async function loadTrades() {
               <ul class="trade-assets">
                 ${assets2.length ? assets2.map(a => `<li>${a}</li>`).join("") : "<li><em>No players or picks</em></li>"}
               </ul>
+              ${valueBarHtml(v2)}
             </div>
           </div>
+          ${srcCaption ? `<div class="trade-market-src">${srcCaption}</div>` : ""}
         </div>
       </div>`;
   });

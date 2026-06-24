@@ -24,6 +24,85 @@ function getTTL(leagueId) {
     : TTL_OFFSEASON;
 }
 
+// ── TRADE MARKET (FantasyCalc "then vs now") ─────────────────────────────────
+// Day-of trade values. Trades on/after FC_CUTOFF freeze live FantasyCalc values
+// (lazily, on first read); earlier trades are backfilled from DynastyProcess by
+// scripts/backfill_trade_values.py. Both write the same trade-values/{lid}.json
+// shape into R2 (ESPN_DATA bucket).
+const FC_URL       = "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&ppr=1&includePickValues=true";
+const FC_CACHE_KEY = "fc_values";
+const FC_TTL       = 60 * 60 * 24;                       // 24h
+const FC_CUTOFF_MS = Date.parse("2026-07-01T00:00:00Z"); // FC on/after, DP before
+
+// Fetch + parse FantasyCalc into { players: {sleeperId: value}, picks: {year_round[_q]: value} }
+async function getFcMaps(env) {
+  let raw = await env.FF_CACHE.get(FC_CACHE_KEY);
+  if (!raw) {
+    const res = await fetch(FC_URL, { headers: { "User-Agent": "ffhistorian/1.0" } });
+    if (!res.ok) return null;
+    raw = await res.text();
+    await env.FF_CACHE.put(FC_CACHE_KEY, raw, { expirationTtl: FC_TTL });
+  }
+  let arr;
+  try { arr = JSON.parse(raw); } catch { return null; }
+
+  const players = {};
+  const picks   = {};
+  for (const item of arr) {
+    const sid = item.player?.sleeperId || item.player?.maybeSleeperID;
+    const pos = (item.player?.position || "").toUpperCase();
+    const isPick = pos === "PI" || pos === "PICK" || !sid || String(sid) === "0";
+    if (!isPick) { players[String(sid)] = item.value; continue; }
+
+    const name = (item.player?.name || "").toLowerCase();
+    const ym = name.match(/20(\d\d)/);
+    if (!ym) continue;
+    const year = "20" + ym[1];
+    let round = 0;
+    if      (/\b1(st)?\b/.test(name) || /first/.test(name))  round = 1;
+    else if (/\b2(nd)?\b/.test(name) || /second/.test(name)) round = 2;
+    else if (/\b3(rd)?\b/.test(name) || /third/.test(name))  round = 3;
+    else if (/\b4(th)?\b/.test(name) || /fourth/.test(name)) round = 4;
+    else if (/\b5(th)?\b/.test(name) || /fifth/.test(name))  round = 5;
+    else if (/\b6(th)?\b/.test(name) || /sixth/.test(name))  round = 6;
+    if (!round) continue;
+    let q = "mid";
+    if (/early/.test(name)) q = "early";
+    else if (/late/.test(name)) q = "late";
+    picks[`${year}_${round}_${q}`] = item.value;
+    if (!picks[`${year}_${round}`] || item.value > picks[`${year}_${round}`]) {
+      picks[`${year}_${round}`] = item.value;
+    }
+  }
+  return { players, picks };
+}
+
+// Generic (slot-unknown) pick value — used at freeze time before a draft happens
+function genericPickValue(season, round, picks) {
+  if (round > 6) return 0;
+  return picks[`${season}_${round}_mid`]
+      || picks[`${season}_${round}`]
+      || picks[`${season}_${round}_early`]
+      || 0;
+}
+
+// Aggregate completed trades for a league (KV-cached, shared by /trades + /trade-values)
+async function fetchAllTrades(env, leagueId, ttl) {
+  const cacheKey = `trades:${leagueId}`;
+  const cached = await env.FF_CACHE.get(cacheKey);
+  if (cached) { try { return JSON.parse(cached); } catch { /* refetch below */ } }
+
+  const weekFetches = Array.from({ length: 18 }, (_, i) =>
+    fetch(`${SLEEPER_BASE}/league/${leagueId}/transactions/${i + 1}`)
+      .then(r => (r.ok ? r.json() : []))
+      .catch(() => [])
+  );
+  const allWeeks = await Promise.all(weekFetches);
+  const trades = allWeeks.flat().filter(tx => tx.type === "trade" && tx.status === "complete");
+  await env.FF_CACHE.put(cacheKey, JSON.stringify(trades), { expirationTtl: ttl });
+  return trades;
+}
+
 async function fetchWithCache(env, cacheKey, url, ttl) {
   // 1. Try KV cache first
   const cached = await env.FF_CACHE.get(cacheKey);
@@ -317,26 +396,57 @@ export default {
         });
       }
 
-      // Fetch all 18 weeks of transactions in parallel
-      const weekFetches = Array.from({ length: 18 }, (_, i) =>
-        fetch(`${SLEEPER_BASE}/league/${leagueId}/transactions/${i + 1}`)
-          .then(r => r.ok ? r.json() : [])
-          .catch(() => [])
-      );
-      const allWeeks = await Promise.all(weekFetches);
-      const trades = allWeeks
-        .flat()
-        .filter(tx => tx.type === "trade" && tx.status === "complete");
-
-      const body = JSON.stringify(trades);
-      await env.FF_CACHE.put(cacheKey, body, { expirationTtl: ttl });
-
-      return new Response(body, {
+      const trades = await fetchAllTrades(env, leagueId, ttl);
+      return new Response(JSON.stringify(trades), {
         headers: {
           "Content-Type": "application/json",
           "X-Cache": "MISS",
           "Access-Control-Allow-Origin": "*",
         },
+      });
+    }
+
+    // ── TRADE MARKET VALUES (frozen "day-of" values per trade) ────────────
+    // Returns { [transaction_id]: { source, asOf, players:{pid:val}, picks:{"season:round:roster_id":val} } }
+    // Lazily freezes live FantasyCalc values for post-cutoff trades on read.
+    if (resource === "trade-values") {
+      const r2Key = `trade-values/${leagueId}.json`;
+      let frozen = {};
+      try {
+        const obj = await env.ESPN_DATA.get(r2Key);
+        if (obj) frozen = JSON.parse(await obj.text());
+      } catch { frozen = {}; }
+
+      const trades = await fetchAllTrades(env, leagueId, ttl);
+      const toFreeze = trades.filter(tx =>
+        (tx.status_updated || 0) >= FC_CUTOFF_MS && !frozen[tx.transaction_id]
+      );
+
+      if (toFreeze.length) {
+        const fc = await getFcMaps(env);
+        if (fc) {
+          const asOf = new Date().toISOString().slice(0, 10);
+          for (const tx of toFreeze) {
+            const rec = { source: "FC", asOf, frozenAt: Date.now(), players: {}, picks: {} };
+            for (const pid of Object.keys(tx.adds || {})) {
+              rec.players[pid] = fc.players[pid] || 0;
+            }
+            for (const p of (tx.draft_picks || [])) {
+              rec.picks[`${p.season}:${p.round}:${p.roster_id}`] =
+                genericPickValue(p.season, p.round, fc.picks);
+            }
+            frozen[tx.transaction_id] = rec;
+          }
+          try {
+            await env.ESPN_DATA.put(r2Key, JSON.stringify(frozen), {
+              httpMetadata: { contentType: "application/json" },
+            });
+          } catch { /* non-fatal — return what we have */ }
+        }
+      }
+
+      return new Response(JSON.stringify(frozen), {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
 

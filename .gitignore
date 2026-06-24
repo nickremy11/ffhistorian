@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build / tooling
+.wrangler/
+dist/
+
+# Backfill script output
+scripts/out/
+
+# OS / editor
+.DS_Store
+*.log
+
+# Python
+__pycache__/
+*.pyc
