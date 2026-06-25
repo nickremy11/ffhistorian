@@ -1226,18 +1226,21 @@ function consolidationBoost(n1, n2) {
 // boostPct: consolidation premium chip shown on the side receiving fewer pieces.
 function valueBarHtml(v, showDelta, boostPct) {
   if (!v.hasThen && !v.hasNow) return "";
+  const mult = 1 + (boostPct || 0) / 100;   // bake the consolidation premium into shown values
+  const thenV = Math.round(v.then * mult);
+  const nowV  = Math.round(v.now * mult);
   const fmt = n => n.toLocaleString("en-US");
-  const thenStr = v.hasThen ? `<span class="tv-then">Then ${fmt(v.then)}</span>` : "";
-  const nowStr  = v.hasNow  ? `<span class="tv-now">Now ${fmt(v.now)}</span>`   : "";
+  const thenStr = v.hasThen ? `<span class="tv-then">Then ${fmt(thenV)}</span>` : "";
+  const nowStr  = v.hasNow  ? `<span class="tv-now">Now ${fmt(nowV)}</span>`   : "";
   let delta = "";
-  if (showDelta && v.hasThen && v.hasNow && v.then > 0) {
-    const pct = Math.round(((v.now - v.then) / v.then) * 100);
+  if (showDelta && v.hasThen && v.hasNow && thenV > 0) {
+    const pct = Math.round(((nowV - thenV) / thenV) * 100);  // same factor both ends → unchanged %
     const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
     const sign = pct > 0 ? "+" : "";
     delta = `<span class="tv-delta ${cls}">${sign}${pct}%</span>`;
   }
   const boost = boostPct
-    ? `<span class="tv-boost" title="Consolidation premium for receiving fewer pieces">+${boostPct}% cons.</span>`
+    ? `<span class="tv-boost" title="Consolidation premium for receiving fewer pieces — already included in the values">incl. +${boostPct}%</span>`
     : "";
   const sep = (thenStr && nowStr) ? `<span class="tv-arrow">→</span>` : "";
   return `<div class="trade-value">${thenStr}${sep}${nowStr}${delta}${boost}</div>`;
