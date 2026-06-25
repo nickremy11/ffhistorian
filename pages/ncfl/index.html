@@ -257,7 +257,12 @@
     .tv-delta.up   { color: #0b3d1e; background: #7bc47f; }
     .tv-delta.down { color: #4a0d0d; background: #d98a8a; }
     .tv-delta.flat { color: var(--cream); background: var(--brown-mid); }
+    .tv-boost { font-weight: 700; padding: 1px 7px; border-radius: 10px; font-size: 0.72rem; color: var(--brown-dark); background: var(--gold); }
     .trade-market-src { margin-top: 10px; font-family: 'Crimson Text', serif; font-size: 0.72rem; color: var(--gold); opacity: 0.65; font-style: italic; }
+    /* Trade winner / loser (by current value) */
+    .trade-side.win, .trade-side.even { background: rgba(74,124,89,0.18); border-radius: 4px; padding: 6px 10px; margin: -6px -4px; }
+    .trade-side.lose { background: rgba(120,30,30,0.22); border-radius: 4px; padding: 6px 10px; margin: -6px -4px; }
+    .trade-side.lose .trade-side-label.gets { background: #7a1f1f; }
 
     /* ── RECORDS TAB ── */
     .records-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
@@ -1207,20 +1212,35 @@ function computeSideValue(tx, sideRid, frozenRec) {
   return { then: Math.round(then), now: Math.round(now), hasThen: !!frozenRec, hasNow: !!fc };
 }
 
-function valueBarHtml(v) {
+// Consolidation premium: boost the side receiving FEWER pieces, by the piece-count
+// gap — 1→10%, 2→15%, 3+→20% (cap 20). Feeds the winner call only.
+function consolidationBoost(n1, n2) {
+  const diff = Math.abs(n1 - n2);
+  if (diff === 0 || n1 === 0 || n2 === 0) return { p1: 0, p2: 0 };
+  const pct = Math.min(20, 5 + 5 * diff);
+  return n1 < n2 ? { p1: pct, p2: 0 } : { p1: 0, p2: pct };
+}
+
+// showDelta: only when "then" and "now" are the same scale (both FantasyCalc).
+// DP→FC comparisons are apples-to-oranges, so we omit the % for historical trades.
+// boostPct: consolidation premium chip shown on the side receiving fewer pieces.
+function valueBarHtml(v, showDelta, boostPct) {
   if (!v.hasThen && !v.hasNow) return "";
   const fmt = n => n.toLocaleString("en-US");
   const thenStr = v.hasThen ? `<span class="tv-then">Then ${fmt(v.then)}</span>` : "";
   const nowStr  = v.hasNow  ? `<span class="tv-now">Now ${fmt(v.now)}</span>`   : "";
   let delta = "";
-  if (v.hasThen && v.hasNow && v.then > 0) {
+  if (showDelta && v.hasThen && v.hasNow && v.then > 0) {
     const pct = Math.round(((v.now - v.then) / v.then) * 100);
     const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
     const sign = pct > 0 ? "+" : "";
     delta = `<span class="tv-delta ${cls}">${sign}${pct}%</span>`;
   }
+  const boost = boostPct
+    ? `<span class="tv-boost" title="Consolidation premium for receiving fewer pieces">+${boostPct}% cons.</span>`
+    : "";
   const sep = (thenStr && nowStr) ? `<span class="tv-arrow">→</span>` : "";
-  return `<div class="trade-value">${thenStr}${sep}${nowStr}${delta}</div>`;
+  return `<div class="trade-value">${thenStr}${sep}${nowStr}${delta}${boost}</div>`;
 }
 
 function marketSourceCaption(frozenRec) {
@@ -1326,6 +1346,22 @@ async function loadTrades() {
     const v1 = computeSideValue(tx, t.r1id, frozenRec);
     const v2 = computeSideValue(tx, t.r2id, frozenRec);
     const srcCaption = marketSourceCaption(frozenRec);
+    // % only when both ends are FantasyCalc (same scale); DP→FC has no meaningful %.
+    const showDelta = frozenRec?.source === "FC";
+    // Consolidation premium boosts the side getting fewer pieces, then we pick a winner
+    // by current (hindsight) value. Both sides' "now" are FC, so comparable.
+    const { p1, p2 } = consolidationBoost(assets1.length, assets2.length);
+    let cls1 = "", cls2 = "";
+    if (v1.hasNow && v2.hasNow) {
+      const adj1 = v1.now * (1 + p1 / 100), adj2 = v2.now * (1 + p2 / 100);
+      const hi = Math.max(adj1, adj2), lo = Math.min(adj1, adj2);
+      if (hi > 0 && (hi - lo) / hi <= 0.10) {
+        cls1 = cls2 = " even";          // within 10% → no real winner, both green
+      } else if (adj1 !== adj2) {
+        cls1 = adj1 > adj2 ? " win" : " lose";
+        cls2 = adj2 > adj1 ? " win" : " lose";
+      }
+    }
 
     html += `
       <div class="trade-item">
@@ -1336,22 +1372,22 @@ async function loadTrades() {
         <div class="trade-card">
           <div class="trade-date">Trade · ${date}</div>
           <div class="trade-row">
-            <div class="trade-side">
+            <div class="trade-side${cls1}">
               <span class="trade-side-label gets">${name1} receives</span>
               <div class="trade-owner">${name1}</div>
               <ul class="trade-assets">
                 ${assets1.length ? assets1.map(a => `<li>${a}</li>`).join("") : "<li><em>No players or picks</em></li>"}
               </ul>
-              ${valueBarHtml(v1)}
+              ${valueBarHtml(v1, showDelta, p1)}
             </div>
             <div class="trade-arrow">⇄</div>
-            <div class="trade-side">
+            <div class="trade-side${cls2}">
               <span class="trade-side-label gets">${tName2} receives</span>
               <div class="trade-owner">${tName2}</div>
               <ul class="trade-assets">
                 ${assets2.length ? assets2.map(a => `<li>${a}</li>`).join("") : "<li><em>No players or picks</em></li>"}
               </ul>
-              ${valueBarHtml(v2)}
+              ${valueBarHtml(v2, showDelta, p2)}
             </div>
           </div>
           ${srcCaption ? `<div class="trade-market-src">${srcCaption}</div>` : ""}

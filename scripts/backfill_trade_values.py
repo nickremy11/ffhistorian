@@ -264,7 +264,11 @@ def _round_from_name(name):
 
 
 def _norm_name(name):
-    return re.sub(r"[^a-z]", "", (name or "").lower())
+    # Match across sources: drop generational suffixes (Walker III, Fannin Jr) and
+    # all punctuation/spacing, so "Kenneth Walker III" == "Kenneth Walker".
+    n = (name or "").lower()
+    n = re.sub(r"\b(jr|sr|ii|iii|iv)\b", " ", n)
+    return re.sub(r"[^a-z]", "", n)
 
 
 def _ecr_to_value(ecr, curve):
@@ -301,7 +305,7 @@ def build_name_to_pid():
     return out
 
 
-def backfill_league(folder, seasons, dp, name_to_pid):
+def backfill_league(folder, seasons, dp, name_to_pid, force=False):
     by_league = {}  # leagueId -> merged frozen dict
     for year, lid in sorted(seasons.items()):
         try:
@@ -311,6 +315,7 @@ def backfill_league(folder, seasons, dp, name_to_pid):
             continue
 
         # Start from whatever's already in R2 so we never clobber FC entries.
+        # --force recomputes DP (pre-cutoff) records; FC (post-cutoff) ones are never touched.
         frozen = dict(read_r2_json(f"trade-values/{lid}.json"))
 
         added = 0
@@ -319,7 +324,7 @@ def backfill_league(folder, seasons, dp, name_to_pid):
             if ts >= CUTOFF_MS:
                 continue  # FC handles these
             txid = tx.get("transaction_id")
-            if not txid or txid in frozen:
+            if not txid or (txid in frozen and not force):
                 continue
             date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             snap = dp.snapshot_for(date_str, name_to_pid)
@@ -350,6 +355,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--league", help="only this league folder (default: all)")
     ap.add_argument("--upload", action="store_true", help="run wrangler r2 uploads")
+    ap.add_argument("--force", action="store_true", help="recompute DP records even if already in R2")
     args = ap.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -368,7 +374,7 @@ def main():
         written = []
         for folder, seasons in targets.items():
             print(f"\n=== {folder} ===")
-            by_league = backfill_league(folder, seasons, dp, name_to_pid)
+            by_league = backfill_league(folder, seasons, dp, name_to_pid, force=args.force)
             for lid, frozen in by_league.items():
                 out_path = os.path.join(OUT_DIR, f"{lid}.json")
                 with open(out_path, "w") as f:
