@@ -668,24 +668,42 @@ async function buildDraftPickMap() {
   }
 }
 
-function resolveDraftPick(pick) {
+// Whose pick this originally was (pick.roster_id = original owner at time of trade),
+// resolved to a display name via that season's (or the trade's season's) roster→owner map.
+// Lets you judge a future pick's real value — a bad team's 1st is worth more than a good team's.
+function resolvePickOwnerName(pick, tradeYear) {
+  const tryYears = [pick.season, tradeYear].filter((y, i, arr) => y && arr.indexOf(y) === i);
+  for (const yr of tryYears) {
+    const sd = allSeasonData[yr];
+    if (!sd) continue;
+    const uid = sd.rosterUserMap[pick.roster_id];
+    if (!uid) continue;
+    const name = ownerMap[canonicalUserId(uid)]?.display_name;
+    if (name) return name;
+  }
+  return null;
+}
+
+function resolveDraftPick(pick, tradeYear) {
   // Trade pick shape: { season, round, roster_id (original owner), owner_id, previous_owner_id }
   //
   // Step 1: look up the original owner's draft slot for that season
   // (stored as draftPickMap["slot:season:roster_id"])
   const originalSlot = draftPickMap[`slot:${pick.season}:${pick.roster_id}`];
+  const ownerName = resolvePickOwnerName(pick, tradeYear);
+  const ownerSuffix = ownerName ? ` (orig. ${ownerName})` : "";
 
   if (originalSlot !== undefined) {
     // Step 2: look up the pick at that slot in the actual draft
     const key = `${pick.season}:${pick.round}:${originalSlot}`;
-    if (draftPickMap[key]) return draftPickMap[key];
-    // Draft hasn't happened yet — show slot-based label
+    if (draftPickMap[key]) return draftPickMap[key]; // already drafted — the player name says it all
+    // Draft hasn't happened yet — show slot-based label + whose original slot it is
     const slotStr = `${pick.round}.${String(originalSlot).padStart(2, '0')}`;
-    return `${pick.season} ${slotStr}`;
+    return `${pick.season} ${slotStr}${ownerSuffix}`;
   }
 
-  // Fallback if draft_order wasn't available
-  return `${pick.season} Round ${pick.round} Pick`;
+  // Draft order not known yet (pick too far in the future) — round + whose original pick
+  return `${pick.season} Round ${pick.round} Pick${ownerSuffix}`;
 }
 
 // Returns the sleeper player_id a traded pick converted into (drafted), or null if not yet drafted
@@ -1322,8 +1340,8 @@ async function loadTrades() {
 
     const adds1 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r1id).map(([pid]) => playerName(pid));
     const adds2 = Object.entries(tx.adds || {}).filter(([, rid]) => rid === t.r2id).map(([pid]) => playerName(pid));
-    const picks1 = (tx.draft_picks || []).filter(p => p.owner_id === t.r1id).map(p => resolveDraftPick(p));
-    const picks2 = (tx.draft_picks || []).filter(p => p.owner_id === t.r2id).map(p => resolveDraftPick(p));
+    const picks1 = (tx.draft_picks || []).filter(p => p.owner_id === t.r1id).map(p => resolveDraftPick(p, t.year));
+    const picks2 = (tx.draft_picks || []).filter(p => p.owner_id === t.r2id).map(p => resolveDraftPick(p, t.year));
     const assets1 = [...adds1, ...picks1];
     const assets2 = [...adds2, ...picks2];
 
