@@ -487,6 +487,8 @@ const DRAFT_POSITIONS     = ["QB","RB","WR","TE","DST","K"];
 const TOP_TIERS_BY_POS     = { QB: [3, 6, 12], TE: [3, 6, 12], RB: [6, 12, 24, 36], WR: [6, 12, 24, 36, 48] };
 const TREND_POSITIONS      = ["QB", "RB", "WR", "TE"]; // Spending Trends — K/D-ST excluded
 const TREND_COLORS         = { QB: "#c9962a", RB: "#4a7a2f", WR: "#a8352a", TE: "#2f8ca0" };
+const TIER_COLOR_PALETTE   = ["#c9962a", "#4a7a2f", "#a8352a", "#2f8ca0", "#8b5e2e"];
+const ST_POS_TABS          = ["ALL", "QB", "RB", "WR", "TE"];
 
 // Cumulative keeper markup over the player's ORIGINAL draft price:
 // 1st keep +$5, 2nd +$10 more (+$15 total), 3rd +$20 more (+$35 total), 4th +$40 more (+$75), doubling on.
@@ -2127,6 +2129,87 @@ async function initSpendingTrendsTab() {
 
 function stSetMode(mode) { ST.mode = mode; stRender(); }
 
+let stActivePos = "ALL"; // ALL | QB | RB | WR | TE
+function stSetPos(pos) { stActivePos = pos; stRender(); }
+
+// Per-season tier spend for one position: how much was spent on the top N
+// (per TOP_TIERS_BY_POS) at that position, plus how many were kept that year.
+function stComputePositionData(pos) {
+  const seasons = [...new Set((dhPicks || []).map(p => p.season))].sort((a, b) => a - b);
+  const tiers = TOP_TIERS_BY_POS[pos] || [];
+  return seasons.map(season => {
+    const rows = (dhPicks || []).filter(p => p.season === season && p.position === pos);
+    const sorted = [...rows].sort((a, b) => b.price - a.price);
+    const tierSpend = {};
+    tiers.forEach(n => { tierSpend[n] = sorted.slice(0, n).reduce((s, p) => s + p.price, 0); });
+    return { season, tierSpend, keeperCount: rows.filter(p => p.is_keeper).length, drafted: rows.length };
+  });
+}
+
+function stRenderPositionChart(pos, data) {
+  const tiers = TOP_TIERS_BY_POS[pos] || [];
+  const W = 760, H = 340, padL = 55, padR = 20, padT = 20, padB = 54; // extra bottom padding for the 2-line x labels
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = data.length;
+
+  let maxVal = 0;
+  tiers.forEach(t => data.forEach(d => { maxVal = Math.max(maxVal, d.tierSpend[t] || 0); }));
+  maxVal = Math.ceil((maxVal * 1.1) / 10) * 10 || 10;
+
+  const xFor = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yFor = (v) => padT + plotH - (v / maxVal) * plotH;
+
+  const gridCount = 5;
+  let gridLines = "";
+  for (let g = 0; g <= gridCount; g++) {
+    const v = (maxVal / gridCount) * g;
+    const y = yFor(v);
+    gridLines += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+    gridLines += `<text x="${padL - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="#e8d5b0" opacity="0.75">$${Math.round(v)}</text>`;
+  }
+
+  let xLabels = "";
+  data.forEach((d, i) => {
+    const x = xFor(i).toFixed(1);
+    xLabels += `<text x="${x}" y="${H - padB + 20}" text-anchor="middle" font-size="11" fill="#e8d5b0" opacity="0.9">${d.season}</text>`;
+    xLabels += `<text x="${x}" y="${H - padB + 34}" text-anchor="middle" font-size="10" fill="#c9962a" opacity="0.85">${d.keeperCount} kept</text>`;
+  });
+
+  let lines = "";
+  tiers.forEach((t, ti) => {
+    const color = TIER_COLOR_PALETTE[ti % TIER_COLOR_PALETTE.length];
+    const pts  = data.map((d, i) => `${xFor(i).toFixed(1)},${yFor(d.tierSpend[t] || 0).toFixed(1)}`).join(" ");
+    const dots = data.map((d, i) => `<circle cx="${xFor(i).toFixed(1)}" cy="${yFor(d.tierSpend[t] || 0).toFixed(1)}" r="3.5" fill="${color}"/>`).join("");
+    lines += `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5"/>${dots}`;
+  });
+
+  const legend = tiers.map((t, ti) =>
+    `<span class="trend-legend-item"><span class="trend-swatch" style="background:${TIER_COLOR_PALETTE[ti % TIER_COLOR_PALETTE.length]}"></span>Top ${t}</span>`
+  ).join("");
+
+  return `
+    <div class="trend-legend">${legend}</div>
+    <div class="trend-chart-wrap">
+      <svg viewBox="0 0 ${W} ${H}" class="trend-svg">
+        ${gridLines}
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}" stroke="var(--gold)" stroke-width="1.5"/>
+        <line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="var(--gold)" stroke-width="1.5"/>
+        ${lines}
+        ${xLabels}
+      </svg>
+    </div>`;
+}
+
+function stRenderPositionTable(pos, data) {
+  const tiers = TOP_TIERS_BY_POS[pos] || [];
+  const th = `<th>Year</th>${tiers.map(t => `<th>Top ${t}</th>`).join("")}<th>Kept</th><th>Drafted</th>`;
+  const rowsHtml = data.map(d => {
+    const cells = tiers.map(t => `<td>$${d.tierSpend[t] || 0}</td>`).join("");
+    return `<tr><td>${d.season}</td>${cells}<td>${d.keeperCount}</td><td>${d.drafted}</td></tr>`;
+  }).join("");
+  return `<div class="data-table-wrap"><table class="data-table"><thead><tr>${th}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+}
+
 // One entry per season: { season, total, byPos: {QB,RB,WR,TE} } — total includes
 // every position (K/D-ST too) so % reflects true share of that year's whole budget;
 // only the four skill positions get plotted, per "ignore Kicker and DST for this".
@@ -2212,22 +2295,33 @@ function stRenderTable(data) {
 }
 
 function stRender() {
-  const data = stComputeData();
   const box = document.getElementById("st-content");
-  if (!data.length) {
-    box.innerHTML = `<div class="placeholder-state"><div class="icon">📈</div><p>No draft data yet.</p></div>`;
+  const posTabs = `<div class="pos-pills" style="margin-bottom:18px;">
+    ${ST_POS_TABS.map(p => `<button type="button" class="pos-pill ${stActivePos === p ? "active" : ""}" onclick="stSetPos('${p}')">${p === "ALL" ? "Overview" : p}</button>`).join("")}
+  </div>`;
+
+  if (stActivePos === "ALL") {
+    const data = stComputeData();
+    if (!data.length) { box.innerHTML = posTabs + `<div class="placeholder-state"><div class="icon">📈</div><p>No draft data yet.</p></div>`; return; }
+    box.innerHTML = posTabs + `
+      <div class="tab-actions" style="justify-content:flex-start;">
+        <div class="keeper-toggle">
+          <button type="button" class="keeper-toggle-btn ${ST.mode === "pct" ? "active" : ""}" onclick="stSetMode('pct')">% of Spend</button>
+          <button type="button" class="keeper-toggle-btn ${ST.mode === "dollar" ? "active" : ""}" onclick="stSetMode('dollar')">$ Spend</button>
+        </div>
+      </div>
+      ${stRenderChart(data)}
+      ${stRenderTable(data)}
+      <p class="table-footnote">${ST.mode === "pct" ? "% is each position's share of that season's total draft spend (K/D-ST included in the total, excluded from the lines)." : "Total $ spent on each position that season."}</p>`;
     return;
   }
-  box.innerHTML = `
-    <div class="tab-actions" style="justify-content:flex-start;">
-      <div class="keeper-toggle">
-        <button type="button" class="keeper-toggle-btn ${ST.mode === "pct" ? "active" : ""}" onclick="stSetMode('pct')">% of Spend</button>
-        <button type="button" class="keeper-toggle-btn ${ST.mode === "dollar" ? "active" : ""}" onclick="stSetMode('dollar')">$ Spend</button>
-      </div>
-    </div>
-    ${stRenderChart(data)}
-    ${stRenderTable(data)}
-    <p class="table-footnote">${ST.mode === "pct" ? "% is each position's share of that season's total draft spend (K/D-ST included in the total, excluded from the lines)." : "Total $ spent on each position that season."}</p>`;
+
+  const data = stComputePositionData(stActivePos);
+  if (!data.length) { box.innerHTML = posTabs + `<div class="placeholder-state"><div class="icon">📈</div><p>No draft data yet.</p></div>`; return; }
+  box.innerHTML = posTabs + `
+    ${stRenderPositionChart(stActivePos, data)}
+    ${stRenderPositionTable(stActivePos, data)}
+    <p class="table-footnote">$ spent on the top N ${stActivePos}s drafted that season, by tier. The number under each year is how many ${stActivePos}s were kept into that draft.</p>`;
 }
 
 // ═══════════════════════════════════════════════════
