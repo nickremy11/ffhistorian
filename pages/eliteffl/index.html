@@ -229,22 +229,22 @@
     .keeper-grid { display:flex; gap:16px; overflow-x:auto; padding-bottom:10px; }
     .keeper-col { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; min-width:230px; flex:0 0 230px; box-shadow:4px 4px 0 var(--brown-mid); }
     .keeper-col-head { background:var(--green); color:var(--gold-light); font-family:'Rye',serif; font-size:0.66rem; letter-spacing:0.15em; text-transform:uppercase; padding:10px 14px; text-align:center; }
-    .keeper-player { border-bottom:1px solid rgba(255,255,255,0.08); padding:10px 14px; }
+    .keeper-player { border-bottom:1px solid rgba(255,255,255,0.08); padding:6px 12px; }
     .keeper-player.pos-QB  { background:rgba(201,150,42,0.22); }
     .keeper-player.pos-RB  { background:rgba(74,122,47,0.28); }
     .keeper-player.pos-WR  { background:rgba(59,130,164,0.26); }
     .keeper-player.pos-TE  { background:rgba(153,64,110,0.26); }
     .keeper-player.pos-K   { background:rgba(140,140,140,0.18); }
     .keeper-player.pos-DST { background:rgba(139,26,26,0.24); }
-    .keeper-player-name { color:var(--cream); font-family:'Crimson Text',serif; font-size:0.92rem; display:flex; align-items:center; justify-content:space-between; gap:6px; }
-    .keeper-player-pos { opacity:0.65; font-size:0.72rem; letter-spacing:0.05em; }
-    .keeper-cost-row { display:flex; justify-content:space-between; align-items:baseline; margin-top:5px; }
-    .keeper-cost-big { font-family:'Playfair Display',serif; font-weight:700; font-size:1.3rem; color:var(--gold-light); }
-    .keeper-espn-val { font-family:'Crimson Text',serif; font-size:0.72rem; color:var(--parchment); opacity:0.75; }
-    .keeper-player-links { margin-top:5px; display:flex; gap:10px; }
-    .keeper-player-links a { font-size:0.7rem; color:var(--gold-light); opacity:0.75; text-decoration:none; cursor:pointer; }
+    .keeper-player-name { color:var(--cream); font-family:'Crimson Text',serif; font-size:0.82rem; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+    .keeper-player-pos { opacity:0.65; font-size:0.66rem; letter-spacing:0.05em; }
+    .keeper-cost-row { display:flex; justify-content:space-between; align-items:baseline; margin-top:2px; }
+    .keeper-cost-big { font-family:'Playfair Display',serif; font-weight:700; font-size:1.05rem; color:var(--gold-light); }
+    .keeper-espn-val { font-family:'Crimson Text',serif; font-size:0.66rem; color:var(--parchment); opacity:0.75; }
+    .keeper-player-links { margin-top:2px; display:flex; gap:8px; }
+    .keeper-player-links a { font-size:0.64rem; color:var(--gold-light); opacity:0.75; text-decoration:none; cursor:pointer; }
     .keeper-player-links a:hover { opacity:1; text-decoration:underline; }
-    .kept-badge { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:18px; padding:0 5px; border-radius:9px; font-size:0.62rem; font-weight:700; font-family:'Crimson Text',serif; cursor:pointer; flex-shrink:0; }
+    .kept-badge { display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:16px; padding:0 4px; border-radius:8px; font-size:0.58rem; font-weight:700; font-family:'Crimson Text',serif; cursor:pointer; flex-shrink:0; }
     .kept-badge.k0 { background:var(--brown-mid); color:var(--parchment); }
     .kept-badge.k1 { background:#3a5f7a; color:#cfe6f5; }
     .kept-badge.k2 { background:var(--gold); color:var(--brown-dark); }
@@ -1775,7 +1775,7 @@ function koRender() {
   const owners = dhOwnerNickList();
   const grid = owners.map(owner => {
     const players = (koOptions || []).filter(o => o.owner === owner)
-      .sort((a, b) => (a.player_name || "").localeCompare(b.player_name || ""));
+      .sort((a, b) => (b.keeper_cost ?? -1) - (a.keeper_cost ?? -1));
     const rowsHtml = players.length ? players.map(koPlayerRow).join("") : `<div class="keeper-empty">No eligible keepers listed</div>`;
     return `<div class="keeper-col">
       <div class="keeper-col-head">${esc(owner)}</div>
