@@ -1322,8 +1322,7 @@ function dhRenderTable() {
     { key: "player_name", label: "Player" },
     { key: "position",    label: "Pos" },
     { key: "price",       label: "Price" },
-    { key: "is_keeper",   label: "Keeper" },
-    { key: "times_kept",  label: "Kept ×" },
+    { key: "times_kept",  label: "Keeper" },
     { key: "ppg_prev",    label: "PPG Prev" },
     { key: "ppg_this",    label: "PPG This" },
   ];
@@ -1346,7 +1345,6 @@ function dhRenderTable() {
       <td>${esc(p.position)}</td>
       <td>$${p.price}</td>
       <td>${p.is_keeper ? `<span class="keeper-tag">KEPT${p.times_kept ? " ×" + p.times_kept : ""}</span>` : "—"}</td>
-      <td>${p.times_kept ?? "—"}</td>
       <td>${p.ppg_prev != null ? p.ppg_prev.toFixed(1) : "—"}</td>
       <td>${p.ppg_this != null ? p.ppg_this.toFixed(1) : "—"}</td>
       ${isAdmin() ? `<td class="row-actions"><button class="icon-btn" onclick="dhOpenEdit(${p.id})" title="Edit">✎</button><button class="icon-btn del" onclick="dhDelete(${p.id})" title="Delete">✕</button></td>` : ""}
