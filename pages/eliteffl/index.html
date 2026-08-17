@@ -230,8 +230,17 @@
     .keeper-col { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; min-width:230px; flex:0 0 230px; box-shadow:4px 4px 0 var(--brown-mid); }
     .keeper-col-head { background:var(--green); color:var(--gold-light); font-family:'Rye',serif; font-size:0.66rem; letter-spacing:0.15em; text-transform:uppercase; padding:10px 14px; text-align:center; }
     .keeper-player { border-bottom:1px solid rgba(255,255,255,0.08); padding:10px 14px; }
+    .keeper-player.pos-QB  { background:rgba(201,150,42,0.22); }
+    .keeper-player.pos-RB  { background:rgba(74,122,47,0.28); }
+    .keeper-player.pos-WR  { background:rgba(59,130,164,0.26); }
+    .keeper-player.pos-TE  { background:rgba(153,64,110,0.26); }
+    .keeper-player.pos-K   { background:rgba(140,140,140,0.18); }
+    .keeper-player.pos-DST { background:rgba(139,26,26,0.24); }
     .keeper-player-name { color:var(--cream); font-family:'Crimson Text',serif; font-size:0.92rem; display:flex; align-items:center; justify-content:space-between; gap:6px; }
-    .keeper-player-meta { color:var(--parchment); opacity:0.75; font-size:0.74rem; margin-top:4px; display:flex; justify-content:space-between; align-items:center; }
+    .keeper-player-pos { opacity:0.65; font-size:0.72rem; letter-spacing:0.05em; }
+    .keeper-cost-row { display:flex; justify-content:space-between; align-items:baseline; margin-top:5px; }
+    .keeper-cost-big { font-family:'Playfair Display',serif; font-weight:700; font-size:1.3rem; color:var(--gold-light); }
+    .keeper-espn-val { font-family:'Crimson Text',serif; font-size:0.72rem; color:var(--parchment); opacity:0.75; }
     .keeper-player-links { margin-top:5px; display:flex; gap:10px; }
     .keeper-player-links a { font-size:0.7rem; color:var(--gold-light); opacity:0.75; text-decoration:none; cursor:pointer; }
     .keeper-player-links a:hover { opacity:1; text-decoration:underline; }
@@ -1778,14 +1787,15 @@ function koRender() {
 function koPlayerRow(o) {
   const badgeCls   = koKeptClass(o.times_kept || 0);
   const badgeLabel = (o.times_kept || 0) >= 3 ? "3+" : String(o.times_kept || 0);
-  return `<div class="keeper-player">
+  const posCls     = "pos-" + esc((o.position || "").toUpperCase());
+  return `<div class="keeper-player ${posCls}">
     <div class="keeper-player-name">
-      <span>${esc(o.player_name)} <span style="opacity:0.6;font-size:0.75rem;">${esc(o.position || "")}</span></span>
+      <span>${esc(o.player_name)} <span class="keeper-player-pos">${esc(o.position || "")}</span></span>
       <span class="kept-badge ${badgeCls}" title="${isAdmin() ? "Click to cycle kept count" : "Times kept"}" ${isAdmin() ? `onclick="koCycleKept(${o.id})"` : ""}>${badgeLabel}</span>
     </div>
-    <div class="keeper-player-meta">
-      <span>Cost: ${o.keeper_cost != null ? "$" + o.keeper_cost : "—"}</span>
-      <span>PPG: ${o.ppg != null ? o.ppg.toFixed(1) : "—"}</span>
+    <div class="keeper-cost-row">
+      <span class="keeper-cost-big">${o.keeper_cost != null ? "$" + o.keeper_cost : "—"}</span>
+      <span class="keeper-espn-val">ESPN ${o.espn_value != null ? "$" + o.espn_value : "—"}</span>
     </div>
     ${isAdmin() ? `<div class="keeper-player-links"><a onclick="koOpenEdit(${o.id})">Edit</a><a onclick="koDelete(${o.id})">Remove</a></div>` : ""}
   </div>`;
@@ -1848,7 +1858,7 @@ function koRenderImportPanel() {
   box.innerHTML = `
     <div class="edit-panel import-panel">
       <h3>Bulk Import Keeper Options</h3>
-      <p class="import-hint">Paste rows copied from Excel/Sheets (tab-separated) or a CSV. Header needs "Owner" and "Player" at minimum, plus any of: Position, Times Kept, Original Price, Keeper Cost, PPG, Notes. Times kept / original price / keeper cost are auto-derived from Draft History (across all owners, so trades resolve correctly) for any column you leave out.</p>
+      <p class="import-hint">Paste rows copied from Excel/Sheets (tab-separated) or a CSV. Header needs "Owner" and "Player" at minimum, plus any of: Position, Times Kept, Original Price, Keeper Cost, ESPN $, PPG, Notes. Times kept / original price / keeper cost are auto-derived from Draft History (across all owners, so trades resolve correctly) for any column you leave out.</p>
       <textarea id="ko-imp-text" placeholder="Owner&#9;Player&#9;Keeper Cost
 Hickey&#9;Brian Thomas Jr.&#9;19"></textarea>
       <div class="edit-actions" style="margin-top:12px;">
@@ -1872,6 +1882,7 @@ function koParseImportText(text) {
     times_kept:     ["times kept", "kept count", "times", "kept #", "kept x", "kept ×"],
     original_price: ["original price", "original $", "orig price", "orig $"],
     keeper_cost:    ["keeper cost", "keeper $", "cost", "price", "$"],
+    espn_value:     ["espn $", "espn value", "espn cost", "espn"],
     ppg:            ["ppg"],
     notes:          ["notes", "note"],
   };
@@ -1907,11 +1918,12 @@ function koParseImportText(text) {
       : (originalPrice != null ? keeperCumulativeCost(originalPrice, timesKept) : null);
     const position      = (get("position") || sugg.position || "").toUpperCase();
     const ppg           = get("ppg") !== "" ? Number(get("ppg")) : (sugg.ppg ?? null);
+    const espnValue     = get("espn_value") !== "" ? Number(get("espn_value")) : null;
 
     rows.push({
       owner, player_name: playerName, position,
       times_kept: timesKept, original_price: originalPrice, keeper_cost: keeperCost,
-      ppg, notes: get("notes") || null,
+      ppg, espn_value: espnValue, notes: get("notes") || null,
     });
   });
   return { rows, warnings };
@@ -1962,7 +1974,7 @@ async function koPatch(id, partial) {
   if (!o) return;
   const body = {
     owner: o.owner, player_name: o.player_name, position: o.position, times_kept: o.times_kept,
-    original_price: o.original_price, keeper_cost: o.keeper_cost, ppg: o.ppg, notes: o.notes,
+    original_price: o.original_price, keeper_cost: o.keeper_cost, ppg: o.ppg, espn_value: o.espn_value, notes: o.notes,
     sort_order: o.sort_order, ...partial,
   };
   try {
@@ -2000,6 +2012,7 @@ function koOpenEdit(id) {
         <div class="edit-field"><label>Times Kept</label><input type="number" id="ko-ef-kept" value="${o.times_kept || 0}" min="0"/></div>
         <div class="edit-field"><label>Original $</label><input type="number" id="ko-ef-orig" value="${o.original_price ?? ""}"/></div>
         <div class="edit-field"><label>Keeper Cost $</label><input type="number" id="ko-ef-cost" value="${o.keeper_cost ?? ""}"/></div>
+        <div class="edit-field"><label>ESPN $</label><input type="number" id="ko-ef-espn" value="${o.espn_value ?? ""}" placeholder="paste from ESPN"/></div>
         <div class="edit-field"><label>PPG</label><input type="number" step="0.1" id="ko-ef-ppg" value="${o.ppg ?? ""}"/></div>
         <div class="edit-field"><label>Notes</label><input type="text" id="ko-ef-notes" value="${esc(o.notes || "")}"/></div>
       </div>
@@ -2028,6 +2041,7 @@ async function koSaveEdit(id) {
     times_kept:     Number(document.getElementById("ko-ef-kept").value) || 0,
     original_price: document.getElementById("ko-ef-orig").value === "" ? null : Number(document.getElementById("ko-ef-orig").value),
     keeper_cost:    document.getElementById("ko-ef-cost").value === "" ? null : Number(document.getElementById("ko-ef-cost").value),
+    espn_value:     document.getElementById("ko-ef-espn").value === "" ? null : Number(document.getElementById("ko-ef-espn").value),
     ppg:            document.getElementById("ko-ef-ppg").value  === "" ? null : Number(document.getElementById("ko-ef-ppg").value),
     notes:          document.getElementById("ko-ef-notes").value.trim() || null,
     sort_order:     o.sort_order || 0,
