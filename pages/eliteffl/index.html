@@ -1486,22 +1486,32 @@ async function dhDelete(id) {
 
 // ── Draft History — bulk import (admin only) ───────────────────────────────
 let dhImportOpen = false;
+let dhImportMode = "picks"; // "picks" (new rows) | "ppg" (merge PPG into existing rows by player name)
 function dhToggleImport() { dhImportOpen = !dhImportOpen; dhRenderImportPanel(); }
+function dhSetImportMode(mode) { dhImportMode = mode; dhRenderImportPanel(); }
 
 function dhRenderImportPanel() {
   const box = document.getElementById("dh-import-panel");
   if (!dhImportOpen) { box.innerHTML = ""; return; }
   const defaultSeason = Math.max(DRAFT_START_SEASON, ...(dhPicks || []).map(p => p.season), DRAFT_START_SEASON);
+  const isPpg = dhImportMode === "ppg";
   box.innerHTML = `
     <div class="edit-panel import-panel">
       <h3>Import a Season</h3>
-      <div class="edit-grid" style="grid-template-columns:160px;max-width:300px;">
-        <div class="edit-field"><label>Default Season</label><input type="number" id="imp-season" value="${defaultSeason}" min="${DRAFT_START_SEASON}"/></div>
+      <div class="keeper-toggle" style="margin-bottom:14px;">
+        <button type="button" class="keeper-toggle-btn ${!isPpg ? "active" : ""}" onclick="dhSetImportMode('picks')">New Picks</button>
+        <button type="button" class="keeper-toggle-btn ${isPpg ? "active" : ""}" onclick="dhSetImportMode('ppg')">PPG Only (merge)</button>
       </div>
-      <p class="import-hint">Paste rows copied from Excel/Sheets (tab-separated) or a CSV. First row must be a header containing any of: Player, Position, Price, Owner, Keeper, Times Kept, PPG Prev, PPG This, Notes, Season (Season is optional — falls back to the Default Season above if that column is missing).</p>
-      <textarea id="imp-text" placeholder="Player&#9;Position&#9;Price&#9;Owner&#9;Keeper&#9;Times Kept&#9;PPG Prev&#9;PPG This"></textarea>
+      <div class="edit-grid" style="grid-template-columns:160px;max-width:300px;">
+        <div class="edit-field"><label>Season</label><input type="number" id="imp-season" value="${defaultSeason}" min="${DRAFT_START_SEASON}"/></div>
+      </div>
+      ${isPpg
+        ? `<p class="import-hint">Fills in PPG on rows already imported for this season — matched by player name. Any column left blank on a row keeps what's already stored, so a partial paste won't clobber the other PPG column. Header needs "Player" plus "PPG Prev" and/or "PPG This".</p>
+           <textarea id="imp-text" placeholder="Player&#9;PPG Prev&#9;PPG This"></textarea>`
+        : `<p class="import-hint">Paste rows copied from Excel/Sheets (tab-separated) or a CSV. First row must be a header containing any of: Player, Position, Price, Owner, Keeper, Times Kept, PPG Prev, PPG This, Notes, Season (Season is optional — falls back to the Season above if that column is missing).</p>
+           <textarea id="imp-text" placeholder="Player&#9;Position&#9;Price&#9;Owner&#9;Keeper&#9;Times Kept&#9;PPG Prev&#9;PPG This"></textarea>`}
       <div class="edit-actions" style="margin-top:12px;">
-        <button class="btn" onclick="dhRunImport()">Import Rows</button>
+        <button class="btn" onclick="dhRunImport()">${isPpg ? "Merge PPG" : "Import Rows"}</button>
         <button class="btn ghost" onclick="dhToggleImport()">Cancel</button>
       </div>
       <div id="imp-result"></div>
@@ -1563,7 +1573,61 @@ function dhParseImportText(text, defaultSeason) {
   return { rows, warnings };
 }
 
+function dhParsePpgText(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error("Paste a header row plus at least one data row.");
+  const delim  = lines[0].includes("\t") ? "\t" : ",";
+  const header = lines[0].split(delim).map(h => h.trim().toLowerCase());
+  const nameIdx = header.findIndex(h => ["player", "player name", "name"].includes(h));
+  const prevIdx = header.findIndex(h => ["ppg prev", "prev ppg", "previous year ppg", "ppg previous year"].includes(h));
+  const thisIdx = header.findIndex(h => ["ppg this", "ppg", "this year ppg", "draft year ppg", "ppg draft year"].includes(h));
+  if (nameIdx === -1) throw new Error('No "Player" column found in the header row.');
+  if (prevIdx === -1 && thisIdx === -1) throw new Error('Need a "PPG Prev" and/or "PPG This" column.');
+  return lines.slice(1).map(line => {
+    const cells = line.split(delim).map(c => c.trim());
+    return {
+      player_name: cells[nameIdx] || "",
+      ppg_prev: prevIdx > -1 && cells[prevIdx] !== "" ? Number(cells[prevIdx]) : null,
+      ppg_this: thisIdx > -1 && cells[thisIdx] !== "" ? Number(cells[thisIdx]) : null,
+    };
+  }).filter(r => r.player_name);
+}
+
+async function dhRunPpgImport() {
+  const text     = document.getElementById("imp-text").value;
+  const season   = document.getElementById("imp-season").value;
+  const resultBox = document.getElementById("imp-result");
+  let rows;
+  try {
+    rows = dhParsePpgText(text);
+  } catch (e) {
+    resultBox.innerHTML = `<div class="import-result err">${esc(e.message)}</div>`;
+    return;
+  }
+  if (!rows.length) {
+    resultBox.innerHTML = `<div class="import-result err">No data rows found.</div>`;
+    return;
+  }
+  try {
+    const res = await fetch(`${ELITEFFL_API}/picks/import-ppg`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ season: Number(season), rows }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    let msg = `<div class="import-result ok">✔ Updated PPG on ${data.matched} pick${data.matched === 1 ? "" : "s"}.</div>`;
+    if (data.unmatched && data.unmatched.length) msg += `<div class="import-result err">No matching pick found for: ${data.unmatched.map(esc).join(", ")}</div>`;
+    resultBox.innerHTML = msg;
+    await loadDraftPicks(true);
+    dhRender();
+  } catch (e) {
+    resultBox.innerHTML = `<div class="import-result err">${esc(e.message)}</div>`;
+  }
+}
+
 async function dhRunImport() {
+  if (dhImportMode === "ppg") return dhRunPpgImport();
   const text          = document.getElementById("imp-text").value;
   const defaultSeason = document.getElementById("imp-season").value;
   const resultBox      = document.getElementById("imp-result");
