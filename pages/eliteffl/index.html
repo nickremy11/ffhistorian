@@ -252,8 +252,9 @@
     .kh-table thead tr { background:var(--green); border-bottom:3px solid var(--gold); }
     .kh-table th { font-family:'Rye',serif; font-size:0.6rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--gold-light); padding:10px 12px; text-align:center; white-space:nowrap; }
     .kh-table td { padding:8px 12px; color:var(--parchment); text-align:center; vertical-align:middle; border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.82rem; white-space:nowrap; }
-    .kh-table td.year-cell { font-family:'Rye',serif; font-size:0.7rem; color:var(--gold); background:rgba(255,255,255,0.03); }
+    .kh-table td.year-cell { font-family:'Rye',serif; font-size:0.7rem; color:var(--gold); background:var(--brown-dark); position:sticky; left:0; z-index:2; border-right:2px solid var(--gold); }
     .kh-table td.empty-cell { color:var(--brown-light); opacity:0.4; }
+    .kh-table th:first-child { position:sticky; left:0; z-index:3; background:var(--green); border-right:2px solid var(--gold); }
 
     /* ── SPENDING TRENDS ── */
     .trend-legend { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
@@ -369,6 +370,10 @@
         <span><span class="kept-badge k2">2</span> kept twice</span>
         <span><span class="kept-badge k3">3+</span> kept 3+ times</span>
       </div>
+      <div class="tab-actions admin-only" id="ko-admin-actions" style="display:none;">
+        <button class="btn ghost" onclick="koToggleImport()">⬆ Bulk Import</button>
+      </div>
+      <div id="ko-import-panel"></div>
       <div id="ko-add-panel"></div>
       <div id="ko-content"><div class="loading"><div class="spinner"></div><br/>Loading keeper options…</div></div>
     </section>
@@ -1727,18 +1732,21 @@ async function initKeeperOptionsTab() {
 
 function koKeptClass(n) { return n >= 3 ? "k3" : n === 2 ? "k2" : n === 1 ? "k1" : "k0"; }
 
-function koFindPlayerPicks(owner, playerName) {
+// Not filtered by owner — a traded player's keeper-cost basis travels with
+// them, not with whichever fantasy team happens to hold them now, so the
+// chain has to be walked across every owner's picks, not just the current one.
+function koFindPlayerPicks(playerName) {
   const q = playerName.trim().toLowerCase();
-  return (dhPicks || []).filter(p => p.owner === owner && p.player_name.trim().toLowerCase() === q)
+  return (dhPicks || []).filter(p => p.player_name.trim().toLowerCase() === q)
     .sort((a, b) => b.season - a.season);
 }
 
-// Walks a player's picks for this owner backward from most recent; counts the
+// Walks a player's picks (any owner) backward from most recent; counts the
 // consecutive-keeper streak and uses the first non-keeper pick hit as the
 // true original price (falls back to the oldest known row if history doesn't
 // reach that far back).
 function koDeriveSuggestion(owner, playerName) {
-  const picks = koFindPlayerPicks(owner, playerName);
+  const picks = koFindPlayerPicks(playerName);
   if (!picks.length) return { originalPrice: null, timesKept: 1, ppg: null, position: null };
   let streak = 0, originalPrice = picks[0].price;
   for (const p of picks) {
@@ -1751,6 +1759,8 @@ function koDeriveSuggestion(owner, playerName) {
 
 function koRender() {
   document.getElementById("ko-admin-badge").style.display = isAdmin() ? "" : "none";
+  document.getElementById("ko-admin-actions").style.display = isAdmin() ? "flex" : "none";
+  if (!isAdmin()) { koImportOpen = false; document.getElementById("ko-import-panel").innerHTML = ""; }
   const owners = dhOwnerNickList();
   const grid = owners.map(owner => {
     const players = (koOptions || []).filter(o => o.owner === owner)
@@ -1826,6 +1836,117 @@ async function koAddPlayer(owner) {
     await loadKeeperOptions(true);
     koRender();
   } catch (e) { showToast("Couldn't add player: " + e.message); }
+}
+
+// ── Keeper Options — bulk import (admin only) ───────────────────────────────
+let koImportOpen = false;
+function koToggleImport() { koImportOpen = !koImportOpen; koRenderImportPanel(); }
+
+function koRenderImportPanel() {
+  const box = document.getElementById("ko-import-panel");
+  if (!koImportOpen) { box.innerHTML = ""; return; }
+  box.innerHTML = `
+    <div class="edit-panel import-panel">
+      <h3>Bulk Import Keeper Options</h3>
+      <p class="import-hint">Paste rows copied from Excel/Sheets (tab-separated) or a CSV. Header needs "Owner" and "Player" at minimum, plus any of: Position, Times Kept, Original Price, Keeper Cost, PPG, Notes. Times kept / original price / keeper cost are auto-derived from Draft History (across all owners, so trades resolve correctly) for any column you leave out.</p>
+      <textarea id="ko-imp-text" placeholder="Owner&#9;Player&#9;Keeper Cost
+Hickey&#9;Brian Thomas Jr.&#9;19"></textarea>
+      <div class="edit-actions" style="margin-top:12px;">
+        <button class="btn" onclick="koRunImport()">Import Rows</button>
+        <button class="btn ghost" onclick="koToggleImport()">Cancel</button>
+      </div>
+      <div id="ko-imp-result"></div>
+    </div>`;
+}
+
+function koParseImportText(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error("Paste a header row plus at least one data row.");
+  const delim  = lines[0].includes("\t") ? "\t" : ",";
+  const header = lines[0].split(delim).map(h => h.trim().toLowerCase());
+
+  const fieldMap = {
+    owner:          ["owner", "team", "manager"],
+    player_name:    ["player", "player name", "name"],
+    position:       ["position", "pos"],
+    times_kept:     ["times kept", "kept count", "times", "kept #", "kept x", "kept ×"],
+    original_price: ["original price", "original $", "orig price", "orig $"],
+    keeper_cost:    ["keeper cost", "keeper $", "cost", "price", "$"],
+    ppg:            ["ppg"],
+    notes:          ["notes", "note"],
+  };
+  const colIdx = {};
+  Object.entries(fieldMap).forEach(([field, names]) => {
+    const idx = header.findIndex(h => names.includes(h));
+    if (idx > -1) colIdx[field] = idx;
+  });
+  if (colIdx.owner == null)       throw new Error('No "Owner" column found in the header row.');
+  if (colIdx.player_name == null) throw new Error('No "Player" column found in the header row.');
+
+  const ownerNickSet = new Set(dhOwnerNickList());
+  const rows = [];
+  const warnings = [];
+  lines.slice(1).forEach((line, i) => {
+    const cells = line.split(delim).map(c => c.trim());
+    const get = (field) => colIdx[field] != null ? (cells[colIdx[field]] || "") : "";
+
+    let owner = get("owner");
+    if (owner && !ownerNickSet.has(owner)) {
+      const match = [...ownerNickSet].find(o => o.toLowerCase() === owner.toLowerCase());
+      if (match) owner = match;
+      else warnings.push(`Row ${i + 2}: owner "${owner}" doesn't match a known owner name — check spelling.`);
+    }
+    const playerName = get("player_name");
+    const sugg = playerName ? koDeriveSuggestion(owner, playerName) : {};
+    if (playerName && sugg.originalPrice == null) warnings.push(`Row ${i + 2}: no Draft History match found for "${playerName}" — times kept / original price left blank, fill in manually.`);
+
+    const timesKept     = get("times_kept") !== "" ? Number(get("times_kept")) : (sugg.timesKept ?? 0);
+    const originalPrice = get("original_price") !== "" ? Number(get("original_price")) : (sugg.originalPrice ?? null);
+    const keeperCostRaw = get("keeper_cost");
+    const keeperCost    = keeperCostRaw !== "" ? Number(keeperCostRaw)
+      : (originalPrice != null ? keeperCumulativeCost(originalPrice, timesKept) : null);
+    const position      = (get("position") || sugg.position || "").toUpperCase();
+    const ppg           = get("ppg") !== "" ? Number(get("ppg")) : (sugg.ppg ?? null);
+
+    rows.push({
+      owner, player_name: playerName, position,
+      times_kept: timesKept, original_price: originalPrice, keeper_cost: keeperCost,
+      ppg, notes: get("notes") || null,
+    });
+  });
+  return { rows, warnings };
+}
+
+async function koRunImport() {
+  const text      = document.getElementById("ko-imp-text").value;
+  const resultBox = document.getElementById("ko-imp-result");
+  let parsed;
+  try {
+    parsed = koParseImportText(text);
+  } catch (e) {
+    resultBox.innerHTML = `<div class="import-result err">${esc(e.message)}</div>`;
+    return;
+  }
+  if (!parsed.rows.length) {
+    resultBox.innerHTML = `<div class="import-result err">No data rows found.</div>`;
+    return;
+  }
+  try {
+    const res = await fetch(`${ELITEFFL_API}/keeper-options/import`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ options: parsed.rows }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    let msg = `<div class="import-result ok">✔ Imported ${data.imported} row${data.imported === 1 ? "" : "s"}.</div>`;
+    if (parsed.warnings.length) msg += `<div class="import-result err">${parsed.warnings.map(esc).join("<br/>")}</div>`;
+    resultBox.innerHTML = msg;
+    await loadKeeperOptions(true);
+    koRender();
+  } catch (e) {
+    resultBox.innerHTML = `<div class="import-result err">${esc(e.message)}</div>`;
+  }
 }
 
 async function koCycleKept(id) {
@@ -1943,7 +2064,7 @@ async function initKeeperHistoryTab() {
 function khRender() {
   const owners     = dhOwnerNickList();
   const keeperRows = (dhPicks || []).filter(p => p.is_keeper && p.season >= KEEPER_START_SEASON);
-  const seasons    = [...new Set(keeperRows.map(p => p.season))].sort((a, b) => a - b);
+  const seasons    = [...new Set(keeperRows.map(p => p.season))].sort((a, b) => b - a); // newest year first
 
   if (!seasons.length) {
     document.getElementById("kh-content").innerHTML =
