@@ -142,6 +142,111 @@
     .trades-placeholder h3 { font-family: 'Rye', serif; font-size: 1rem; color: var(--gold-light); margin-bottom: 12px; letter-spacing: 0.1em; }
     .trades-placeholder p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1rem; color: var(--parchment); opacity: 0.6; max-width: 400px; margin: 0 auto; }
 
+    /* ── ADMIN CONTROLS ── */
+    .admin-badge { display:inline-block; font-family:'Rye',serif; font-size:0.55rem; letter-spacing:0.15em; color:var(--gold); border:1px solid var(--gold); padding:2px 8px; border-radius:2px; margin-left:10px; text-transform:uppercase; vertical-align:middle; }
+    .btn { background:var(--green); border:2px solid var(--gold); color:var(--gold-light); font-family:'Rye',serif; font-size:0.6rem; letter-spacing:0.15em; text-transform:uppercase; padding:8px 16px; cursor:pointer; border-radius:2px; transition:background 0.2s,color 0.2s; }
+    .btn:hover { background:var(--gold); color:var(--brown-dark); }
+    .btn.small { padding:4px 10px; font-size:0.55rem; }
+    .btn.danger { border-color:var(--red); color:#e88; }
+    .btn.danger:hover { background:var(--red); color:var(--cream); }
+    .btn.ghost { background:none; }
+    .tab-actions { display:flex; justify-content:flex-end; gap:10px; margin-bottom:18px; }
+
+    /* ── FILTER BAR ── */
+    .filter-bar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px; margin-bottom:20px; background:var(--parchment); border:2px solid var(--brown-mid); border-radius:2px; padding:16px 18px; }
+    .filter-group { display:flex; flex-direction:column; gap:4px; }
+    .filter-group label { font-family:'Rye',serif; font-size:0.55rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--brown-light); }
+    .filter-group input[type=text], .filter-group input[type=number], .filter-group select {
+      background:var(--cream); border:2px solid var(--brown-mid); color:var(--ink); font-family:'Crimson Text',serif;
+      font-size:0.9rem; padding:6px 10px; border-radius:2px; min-width:0;
+    }
+    .range-inputs { display:flex; align-items:center; gap:6px; }
+    .range-inputs input { width:62px; }
+    .range-inputs span { color:var(--brown-light); }
+    .pos-pills, .keeper-toggle { display:flex; flex-wrap:wrap; gap:6px; }
+    .pos-pill, .keeper-toggle-btn { background:none; border:2px solid var(--brown-mid); cursor:pointer; font-family:'Rye',serif; font-size:0.55rem; letter-spacing:0.12em; color:var(--brown-mid); padding:5px 11px; border-radius:2px; transition:all 0.2s; text-transform:uppercase; }
+    .pos-pill:hover, .keeper-toggle-btn:hover { border-color:var(--gold); color:var(--gold); }
+    .pos-pill.active, .keeper-toggle-btn.active { background:var(--brown-dark); border-color:var(--brown-dark); color:var(--gold-light); }
+    .filter-reset-wrap { align-self:flex-end; }
+
+    /* ── DATA TABLE (draft history) ── */
+    .data-table-wrap { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; overflow-x:auto; -webkit-overflow-scrolling:touch; box-shadow:4px 4px 0 var(--brown-mid); margin-bottom:24px; }
+    .data-table { width:100%; border-collapse:collapse; white-space:nowrap; font-size:0.86rem; }
+    .data-table thead tr { background:var(--green); border-bottom:3px solid var(--gold); }
+    .data-table th { font-family:'Rye',serif; font-size:0.58rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--gold-light); padding:9px 12px; text-align:center; cursor:pointer; user-select:none; }
+    .data-table th:hover { color:var(--gold); }
+    .data-table th.sort-asc::after  { content:" ▲"; font-size:0.6em; color:var(--gold); }
+    .data-table th.sort-desc::after { content:" ▼"; font-size:0.6em; color:var(--gold); }
+    .data-table td { padding:8px 12px; color:var(--parchment); text-align:center; }
+    .data-table td.left { text-align:left; }
+    .data-table tbody tr { border-bottom:1px solid rgba(255,255,255,0.06); }
+    .data-table tbody tr:hover { background:rgba(255,255,255,0.04); }
+    .keeper-tag { display:inline-block; font-size:0.68rem; border:1px solid var(--gold); color:var(--gold); padding:1px 6px; border-radius:2px; }
+    .row-actions { display:flex; gap:8px; justify-content:center; }
+    .icon-btn { background:none; border:none; cursor:pointer; color:var(--parchment); opacity:0.6; font-size:0.9rem; transition:opacity 0.2s,color 0.2s; }
+    .icon-btn:hover { opacity:1; color:var(--gold); }
+    .icon-btn.del:hover { color:#e88; }
+    .table-footnote { font-family:'Crimson Text',serif; font-size:0.8rem; color:var(--brown-light); font-style:italic; margin:-14px 0 24px; }
+
+    /* ── SUMMARY BLOCK ── */
+    .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+    .summary-card { background:var(--parchment); border:2px solid var(--brown-mid); border-radius:2px; padding:12px 16px; }
+    .summary-card .label { font-family:'Rye',serif; font-size:0.52rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--brown-light); margin-bottom:6px; }
+    .summary-card .val { font-family:'Playfair Display',serif; font-weight:700; font-size:1.1rem; color:var(--brown-dark); }
+    .summary-card .sub { font-size:0.75rem; color:var(--brown-light); margin-top:2px; }
+    .pos-spend-wrap { background:var(--parchment); border:2px solid var(--brown-mid); border-radius:2px; padding:16px 18px; margin-bottom:24px; }
+    .pos-spend-bar { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .pos-spend-bar:last-child { margin-bottom:0; }
+    .pos-spend-label { font-family:'Rye',serif; font-size:0.62rem; letter-spacing:0.1em; color:var(--brown-dark); width:38px; flex-shrink:0; }
+    .pos-spend-track { flex:1; height:14px; background:var(--brown-mid); border-radius:2px; overflow:hidden; }
+    .pos-spend-fill { height:100%; background:linear-gradient(to right,var(--gold),var(--gold-light)); }
+    .pos-spend-pct { font-family:'Crimson Text',serif; font-size:0.8rem; color:var(--brown-dark); width:110px; text-align:right; flex-shrink:0; }
+
+    /* ── INLINE EDIT FORM / IMPORT ── */
+    .edit-panel { background:var(--parchment); border:2px solid var(--gold); border-radius:2px; padding:20px; margin-bottom:20px; }
+    .edit-panel h3 { font-family:'Rye',serif; font-size:0.72rem; letter-spacing:0.15em; color:var(--brown-dark); margin-bottom:14px; text-transform:uppercase; }
+    .edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:14px; }
+    .edit-field label { display:block; font-family:'Rye',serif; font-size:0.5rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--brown-light); margin-bottom:4px; }
+    .edit-field input, .edit-field select { width:100%; background:var(--cream); border:2px solid var(--brown-mid); color:var(--ink); font-family:'Crimson Text',serif; font-size:0.9rem; padding:6px 10px; border-radius:2px; box-sizing:border-box; }
+    .edit-field.checkbox { flex-direction:row; align-items:center; gap:8px; display:flex; padding-top:18px; }
+    .edit-field.checkbox input { width:auto; }
+    .edit-actions { display:flex; gap:10px; }
+    .import-panel textarea { width:100%; min-height:130px; background:var(--cream); border:2px solid var(--brown-mid); color:var(--ink); font-family:monospace; font-size:0.8rem; padding:10px; border-radius:2px; box-sizing:border-box; resize:vertical; }
+    .import-hint { font-size:0.8rem; color:var(--brown-light); font-style:italic; margin:8px 0 12px; }
+    .import-result { margin-top:10px; font-size:0.85rem; }
+    .import-result.err { color:var(--red); }
+    .import-result.ok { color:var(--green-light); }
+
+    /* ── KEEPER OPTIONS GRID ── */
+    .keeper-grid { display:flex; gap:16px; overflow-x:auto; padding-bottom:10px; }
+    .keeper-col { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; min-width:230px; flex:0 0 230px; box-shadow:4px 4px 0 var(--brown-mid); }
+    .keeper-col-head { background:var(--green); color:var(--gold-light); font-family:'Rye',serif; font-size:0.66rem; letter-spacing:0.15em; text-transform:uppercase; padding:10px 14px; text-align:center; }
+    .keeper-player { border-bottom:1px solid rgba(255,255,255,0.08); padding:10px 14px; }
+    .keeper-player-name { color:var(--cream); font-family:'Crimson Text',serif; font-size:0.92rem; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+    .keeper-player-meta { color:var(--parchment); opacity:0.75; font-size:0.74rem; margin-top:4px; display:flex; justify-content:space-between; align-items:center; }
+    .keeper-player-links { margin-top:5px; display:flex; gap:10px; }
+    .keeper-player-links a { font-size:0.7rem; color:var(--gold-light); opacity:0.75; text-decoration:none; cursor:pointer; }
+    .keeper-player-links a:hover { opacity:1; text-decoration:underline; }
+    .kept-badge { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:18px; padding:0 5px; border-radius:9px; font-size:0.62rem; font-weight:700; font-family:'Crimson Text',serif; cursor:pointer; flex-shrink:0; }
+    .kept-badge.k0 { background:var(--brown-mid); color:var(--parchment); }
+    .kept-badge.k1 { background:#3a5f7a; color:#cfe6f5; }
+    .kept-badge.k2 { background:var(--gold); color:var(--brown-dark); }
+    .kept-badge.k3 { background:var(--red); color:var(--cream); }
+    .keeper-empty { padding:16px 14px; color:var(--parchment); opacity:0.5; font-style:italic; font-size:0.8rem; text-align:center; }
+    .keeper-add-row { padding:12px 14px; }
+    .keeper-add-row input, .keeper-add-row select { width:100%; margin-bottom:6px; background:var(--cream); border:2px solid var(--brown-mid); color:var(--ink); font-family:'Crimson Text',serif; font-size:0.82rem; padding:5px 8px; border-radius:2px; box-sizing:border-box; }
+    .keeper-legend { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; font-size:0.78rem; color:var(--brown-light); align-items:center; }
+    .keeper-legend span { display:inline-flex; align-items:center; gap:6px; }
+
+    /* ── KEEPER HISTORY TABLE ── */
+    .kh-table-wrap { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; overflow-x:auto; -webkit-overflow-scrolling:touch; box-shadow:4px 4px 0 var(--brown-mid); }
+    .kh-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    .kh-table thead tr { background:var(--green); border-bottom:3px solid var(--gold); }
+    .kh-table th { font-family:'Rye',serif; font-size:0.6rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--gold-light); padding:10px 12px; text-align:center; white-space:nowrap; }
+    .kh-table td { padding:8px 12px; color:var(--parchment); text-align:center; vertical-align:middle; border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.82rem; white-space:nowrap; }
+    .kh-table td.year-cell { font-family:'Rye',serif; font-size:0.7rem; color:var(--gold); background:rgba(255,255,255,0.03); }
+    .kh-table td.empty-cell { color:var(--brown-light); opacity:0.4; }
+
     /* ── UTILITY ── */
     .placeholder-state { text-align: center; padding: 60px 20px; border: 2px dashed var(--brown-mid); border-radius: 2px; }
     .placeholder-state .icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
@@ -175,6 +280,7 @@
         <p class="banner-seasons">2013 · 2014 · 2015 · 2016 · 2017 · 2018 · 2019 · 2020 · 2021 · 2022 · 2023 · 2024 · 2025</p>
         <div class="banner-divider"></div>
       </div>
+      <div id="auth-chip" style="flex-shrink:0;"></div>
     </div>
   </header>
 
@@ -182,6 +288,9 @@
     <div class="tab-bar-inner">
       <button class="tab-btn active" onclick="switchTab('standings', this)">📜 Standings</button>
       <button class="tab-btn" onclick="switchTab('h2h', this)">⚔️ Head to Head</button>
+      <button class="tab-btn" onclick="switchTab('draftHistory', this)">📋 Draft History</button>
+      <button class="tab-btn" onclick="switchTab('keeperOptions', this)">🔒 Keeper Options</button>
+      <button class="tab-btn" onclick="switchTab('keeperHistory', this)">📖 Keeper History</button>
       <button class="tab-btn" onclick="switchTab('trades', this)">🔄 Trade History</button>
       <button class="tab-btn" onclick="switchTab('records', this)">🏅 League Records</button>
     </div>
@@ -220,6 +329,41 @@
       </div>
     </section>
 
+    <!-- DRAFT HISTORY -->
+    <section class="panel" id="panel-draftHistory">
+      <div class="section-head"><h2>Draft History<span class="admin-badge" id="dh-admin-badge" style="display:none;">Site Lead</span></h2><div class="section-head-line"></div></div>
+      <div class="tab-actions admin-only" id="dh-admin-actions" style="display:none;">
+        <button class="btn ghost" onclick="dhToggleImport()">⬆ Import Season</button>
+        <button class="btn" onclick="dhOpenAdd()">+ Add Pick</button>
+      </div>
+      <div id="dh-import-panel"></div>
+      <div id="dh-edit-panel"></div>
+      <div class="filter-bar" id="dh-filter-bar"></div>
+      <div id="dh-summary"></div>
+      <div id="dh-content"><div class="loading"><div class="spinner"></div><br/>Loading the draft ledger…</div></div>
+    </section>
+
+    <!-- KEEPER OPTIONS -->
+    <section class="panel" id="panel-keeperOptions">
+      <div class="section-head"><h2>Keeper Options<span class="admin-badge" id="ko-admin-badge" style="display:none;">Site Lead</span></h2><div class="section-head-line"></div></div>
+      <p class="import-hint" style="margin:-10px 0 18px;">Who's currently eligible to be kept for the next draft, and what it would cost. Maintained by hand — click a kept-count badge to cycle it, or use Edit for cost/PPG.</p>
+      <div class="keeper-legend">
+        <span><span class="kept-badge k0">0</span> never kept</span>
+        <span><span class="kept-badge k1">1</span> kept once</span>
+        <span><span class="kept-badge k2">2</span> kept twice</span>
+        <span><span class="kept-badge k3">3+</span> kept 3+ times</span>
+      </div>
+      <div id="ko-add-panel"></div>
+      <div id="ko-content"><div class="loading"><div class="spinner"></div><br/>Loading keeper options…</div></div>
+    </section>
+
+    <!-- KEEPER HISTORY -->
+    <section class="panel" id="panel-keeperHistory">
+      <div class="section-head"><h2>Keeper History</h2><div class="section-head-line"></div></div>
+      <p class="import-hint" style="margin:-10px 0 18px;">Every player actually kept each year since keepers began, two rows per season (blank when an owner kept fewer than two). Derived automatically from Draft History.</p>
+      <div id="kh-content"><div class="loading"><div class="spinner"></div><br/>Building keeper history…</div></div>
+    </section>
+
     <!-- TRADE HISTORY -->
     <section class="panel" id="panel-trades">
       <div class="section-head"><h2>Trade History</h2><div class="section-head-line"></div></div>
@@ -247,6 +391,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://helper.ffhistorian.com/shared-auth.js"></script>
 <script>
 // ═══════════════════════════════════════════════════
 // CONFIG
@@ -293,6 +438,27 @@ function isRegularSeason(matchup) {
   return matchup.playoffTierType === "NONE" || !matchup.playoffTierType;
 }
 
+function esc(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ── Draft History / Keeper Options / Keeper History config ────────────────
+const ELITEFFL_API        = "https://helper.ffhistorian.com/api/eliteffl";
+const DRAFT_START_SEASON  = 2019;  // first salary-cap auction draft
+const KEEPER_START_SEASON = 2021;  // first draft keepers were used on (based on 2020 prices)
+const DRAFT_POSITIONS     = ["QB","RB","WR","TE","DST","K"];
+const TOP_N_BY_POS        = { QB: 12, RB: 30, WR: 42, TE: 12 };
+
+// Cumulative keeper markup over the player's ORIGINAL draft price:
+// 1st keep +$5, 2nd +$10 more (+$15 total), 3rd +$20 more (+$35 total), 4th +$40 more (+$75), doubling on.
+function keeperCumulativeCost(originalPrice, timesKept) {
+  const n = Math.max(0, Number(timesKept) || 0);
+  return (Number(originalPrice) || 0) + 5 * (Math.pow(2, n) - 1);
+}
+
+let currentUser = null;
+function isAdmin() { return !!(currentUser && currentUser.is_admin); }
+
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
@@ -304,10 +470,27 @@ let allOwnerIds   = []; // canonical IDs
 // ═══════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", async () => {
   buildYearPills();
+  initAuth(); // fire-and-forget — doesn't block standings load
   await fetchAllSeasons();
   buildOwnerDropdowns();
   loadStandings("alltime");
 });
+
+async function initAuth() {
+  currentUser = await SharedAuth.init({
+    chipContainerId: "auth-chip",
+    onLogin:  (u) => { currentUser = u;    refreshAdminUI(); },
+    onLogout: ()  => { currentUser = null; refreshAdminUI(); },
+  });
+  refreshAdminUI();
+}
+
+// Re-renders whichever admin-gated tabs have already loaded data, so signing
+// in/out updates edit controls without a manual tab switch.
+function refreshAdminUI() {
+  if (dhPicks)   dhRender();
+  if (koOptions) koRender();
+}
 
 function buildYearPills() {
   const wrap = document.getElementById("standingsYearPills");
@@ -351,6 +534,9 @@ function switchTab(tab, btn) {
   document.getElementById("panel-" + tab).classList.add("active");
   btn.classList.add("active");
   if (tab === "records" && !recordsLoaded) { loadRecords(); recordsLoaded = true; }
+  if (tab === "draftHistory")  initDraftHistoryTab();
+  if (tab === "keeperOptions") initKeeperOptionsTab();
+  if (tab === "keeperHistory") initKeeperHistoryTab();
 }
 
 // ═══════════════════════════════════════════════════
@@ -939,6 +1125,749 @@ function loadRecords() {
         </ul>
       </div>
     </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// DRAFT HISTORY — shared pick data (also used by Keeper History + Options)
+// ═══════════════════════════════════════════════════
+let dhPicks   = null; // loaded once, shared across tabs
+let dhLoading = null;
+
+async function loadDraftPicks(force) {
+  if (dhPicks && !force) return dhPicks;
+  if (dhLoading && !force) return dhLoading;
+  dhLoading = fetch(`${ELITEFFL_API}/picks`, { credentials: "include" })
+    .then(r => r.json())
+    .then(d => { dhPicks = d.picks || []; dhLoading = null; return dhPicks; })
+    .catch(e => { dhLoading = null; throw e; });
+  return dhLoading;
+}
+
+function dhOwnerNickList() {
+  return [...new Set(allOwnerIds.map(nickname))].sort();
+}
+
+const DH = {
+  season: null,        // null → set to most recent season on first load; "all" is also valid
+  owner: "all",
+  positions: new Set(DRAFT_POSITIONS),
+  keeperFilter: "all", // all | keeper | nonkeeper
+  search: "",
+  priceMin: "", priceMax: "",
+  ppgPrevMin: "", ppgPrevMax: "",
+  ppgThisMin: "", ppgThisMax: "",
+  sortCol: "price",
+  sortDir: -1,
+};
+
+let dhLoaded = false;
+async function initDraftHistoryTab() {
+  if (dhLoaded) return;
+  dhLoaded = true;
+  try {
+    await loadDraftPicks();
+    if (DH.season === null) {
+      const seasons = [...new Set(dhPicks.map(p => p.season))].sort((a, b) => b - a);
+      DH.season = seasons.length ? seasons[0] : "all";
+    }
+    dhRender();
+  } catch (e) {
+    document.getElementById("dh-content").innerHTML = `<div class="error-msg">Couldn't load draft history: ${esc(e.message)}</div>`;
+  }
+}
+
+function dhRender() {
+  dhRenderAdmin();
+  dhRenderFilterBar();
+  dhRenderSummary();
+  dhRenderTable();
+}
+
+function dhRenderAdmin() {
+  document.getElementById("dh-admin-badge").style.display   = isAdmin() ? "" : "none";
+  document.getElementById("dh-admin-actions").style.display = isAdmin() ? "flex" : "none";
+  if (!isAdmin()) { dhImportOpen = false; document.getElementById("dh-import-panel").innerHTML = ""; dhCloseEdit(); }
+}
+
+function dhRenderFilterBar() {
+  const seasons = [...new Set((dhPicks || []).map(p => p.season))].sort((a, b) => b - a);
+  const owners  = dhOwnerNickList();
+  document.getElementById("dh-filter-bar").innerHTML = `
+    <div class="filter-group">
+      <label>Season</label>
+      <select onchange="dhSetSeason(this.value)">
+        <option value="all" ${DH.season === "all" ? "selected" : ""}>All Years</option>
+        ${seasons.map(s => `<option value="${s}" ${String(DH.season) === String(s) ? "selected" : ""}>${s}</option>`).join("")}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Owner</label>
+      <select onchange="dhSetFilter('owner', this.value)">
+        <option value="all">All Owners</option>
+        ${owners.map(o => `<option value="${esc(o)}" ${DH.owner === o ? "selected" : ""}>${esc(o)}</option>`).join("")}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Player</label>
+      <input type="text" placeholder="Search player…" value="${esc(DH.search)}" oninput="dhSetFilter('search', this.value)"/>
+    </div>
+    <div class="filter-group">
+      <label>Position</label>
+      <div class="pos-pills">
+        ${DRAFT_POSITIONS.map(p => `<button type="button" class="pos-pill ${DH.positions.has(p) ? "active" : ""}" onclick="dhTogglePos('${p}', this)">${p}</button>`).join("")}
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Keeper</label>
+      <div class="keeper-toggle">
+        <button type="button" class="keeper-toggle-btn ${DH.keeperFilter === "all" ? "active" : ""}" onclick="dhSetKeeperFilter('all', this)">All</button>
+        <button type="button" class="keeper-toggle-btn ${DH.keeperFilter === "keeper" ? "active" : ""}" onclick="dhSetKeeperFilter('keeper', this)">Keepers</button>
+        <button type="button" class="keeper-toggle-btn ${DH.keeperFilter === "nonkeeper" ? "active" : ""}" onclick="dhSetKeeperFilter('nonkeeper', this)">Fresh</button>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Price $</label>
+      <div class="range-inputs"><input type="number" placeholder="min" value="${DH.priceMin}" oninput="dhSetFilter('priceMin', this.value)"/><span>–</span><input type="number" placeholder="max" value="${DH.priceMax}" oninput="dhSetFilter('priceMax', this.value)"/></div>
+    </div>
+    <div class="filter-group">
+      <label>PPG Prev</label>
+      <div class="range-inputs"><input type="number" placeholder="min" value="${DH.ppgPrevMin}" oninput="dhSetFilter('ppgPrevMin', this.value)"/><span>–</span><input type="number" placeholder="max" value="${DH.ppgPrevMax}" oninput="dhSetFilter('ppgPrevMax', this.value)"/></div>
+    </div>
+    <div class="filter-group">
+      <label>PPG This</label>
+      <div class="range-inputs"><input type="number" placeholder="min" value="${DH.ppgThisMin}" oninput="dhSetFilter('ppgThisMin', this.value)"/><span>–</span><input type="number" placeholder="max" value="${DH.ppgThisMax}" oninput="dhSetFilter('ppgThisMax', this.value)"/></div>
+    </div>
+    <div class="filter-reset-wrap">
+      <button class="btn small ghost" onclick="dhResetFilters()">Reset Filters</button>
+    </div>`;
+}
+
+function dhSetSeason(val) {
+  DH.season = val === "all" ? "all" : Number(val);
+  dhRenderSummary();
+  dhRenderTable();
+}
+function dhSetFilter(key, value) {
+  DH[key] = value;
+  dhRenderTable();
+}
+function dhSetKeeperFilter(val, btn) {
+  DH.keeperFilter = val;
+  btn.parentElement.querySelectorAll(".keeper-toggle-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  dhRenderTable();
+}
+function dhTogglePos(pos, btn) {
+  if (DH.positions.has(pos)) DH.positions.delete(pos); else DH.positions.add(pos);
+  btn.classList.toggle("active");
+  dhRenderTable();
+}
+function dhSort(col) {
+  if (DH.sortCol === col) DH.sortDir *= -1; else { DH.sortCol = col; DH.sortDir = -1; }
+  dhRenderTable();
+}
+function dhResetFilters() {
+  Object.assign(DH, {
+    owner: "all", positions: new Set(DRAFT_POSITIONS), keeperFilter: "all", search: "",
+    priceMin: "", priceMax: "", ppgPrevMin: "", ppgPrevMax: "", ppgThisMin: "", ppgThisMax: "",
+  });
+  dhRenderFilterBar();
+  dhRenderTable();
+}
+
+function dhFilteredRows() {
+  let rows = dhPicks || [];
+  if (DH.season !== "all") rows = rows.filter(p => p.season === DH.season);
+  if (DH.owner !== "all")  rows = rows.filter(p => p.owner === DH.owner);
+  rows = rows.filter(p => DH.positions.has(p.position));
+  if (DH.keeperFilter === "keeper")    rows = rows.filter(p => p.is_keeper);
+  else if (DH.keeperFilter === "nonkeeper") rows = rows.filter(p => !p.is_keeper);
+  if (DH.search.trim()) {
+    const q = DH.search.trim().toLowerCase();
+    rows = rows.filter(p => p.player_name.toLowerCase().includes(q));
+  }
+  const inRange = (val, min, max) => {
+    if (val == null) return false; // an active range filter excludes rows with no value for that field
+    if (min !== "" && val < Number(min)) return false;
+    if (max !== "" && val > Number(max)) return false;
+    return true;
+  };
+  if (DH.priceMin !== ""   || DH.priceMax !== "")   rows = rows.filter(p => inRange(p.price, DH.priceMin, DH.priceMax));
+  if (DH.ppgPrevMin !== "" || DH.ppgPrevMax !== "")  rows = rows.filter(p => inRange(p.ppg_prev, DH.ppgPrevMin, DH.ppgPrevMax));
+  if (DH.ppgThisMin !== "" || DH.ppgThisMax !== "")  rows = rows.filter(p => inRange(p.ppg_this, DH.ppgThisMin, DH.ppgThisMax));
+  return rows;
+}
+
+function dhCmp(va, vb) {
+  if (va == null && vb == null) return 0;
+  if (va == null) return -1;
+  if (vb == null) return 1;
+  return typeof va === "string" ? va.localeCompare(vb) : va - vb;
+}
+function dhSortRows(rows) {
+  const col = DH.sortCol, dir = DH.sortDir;
+  return [...rows].sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (col === "is_keeper") { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+    if (typeof va === "string") { va = va.toLowerCase(); vb = (vb || "").toLowerCase(); }
+    return dhCmp(vb, va) * dir * -1;
+  });
+}
+
+function dhRenderTable() {
+  const rows = dhSortRows(dhFilteredRows());
+  const cols = [
+    { key: "season",      label: "Year" },
+    { key: "owner",       label: "Owner" },
+    { key: "player_name", label: "Player" },
+    { key: "position",    label: "Pos" },
+    { key: "price",       label: "Price" },
+    { key: "is_keeper",   label: "Keeper" },
+    { key: "times_kept",  label: "Kept ×" },
+    { key: "ppg_prev",    label: "PPG Prev" },
+    { key: "ppg_this",    label: "PPG This" },
+  ];
+  const th = cols.map(c => {
+    const active = DH.sortCol === c.key;
+    const cls = active ? (DH.sortDir === -1 ? "sort-desc" : "sort-asc") : "";
+    return `<th class="${cls}" onclick="dhSort('${c.key}')">${c.label}</th>`;
+  }).join("");
+  const adminCol = isAdmin() ? `<th></th>` : "";
+
+  let html = `<div class="data-table-wrap"><table class="data-table"><thead><tr>${th}${adminCol}</tr></thead><tbody>`;
+  if (!rows.length) {
+    html += `<tr><td colspan="${cols.length + (isAdmin() ? 1 : 0)}" style="padding:30px;opacity:0.6;">No picks match these filters.</td></tr>`;
+  }
+  rows.forEach(p => {
+    html += `<tr>
+      <td>${p.season}</td>
+      <td class="left">${esc(p.owner)}</td>
+      <td class="left">${esc(p.player_name)}</td>
+      <td>${esc(p.position)}</td>
+      <td>$${p.price}</td>
+      <td>${p.is_keeper ? `<span class="keeper-tag">KEPT${p.times_kept ? " ×" + p.times_kept : ""}</span>` : "—"}</td>
+      <td>${p.times_kept ?? "—"}</td>
+      <td>${p.ppg_prev != null ? p.ppg_prev.toFixed(1) : "—"}</td>
+      <td>${p.ppg_this != null ? p.ppg_this.toFixed(1) : "—"}</td>
+      ${isAdmin() ? `<td class="row-actions"><button class="icon-btn" onclick="dhOpenEdit(${p.id})" title="Edit">✎</button><button class="icon-btn del" onclick="dhDelete(${p.id})" title="Delete">✕</button></td>` : ""}
+    </tr>`;
+  });
+  html += `</tbody></table></div>
+    <p class="table-footnote">${rows.length} pick${rows.length === 1 ? "" : "s"} shown${DH.season !== "all" ? " · " + DH.season + " draft" : ""}</p>`;
+  document.getElementById("dh-content").innerHTML = html;
+}
+
+function dhRenderSummary() {
+  const box = document.getElementById("dh-summary");
+  if (DH.season === "all") { box.innerHTML = ""; return; }
+  const rows = (dhPicks || []).filter(p => p.season === DH.season);
+  if (!rows.length) { box.innerHTML = ""; return; }
+
+  const totalSpend = rows.reduce((s, p) => s + p.price, 0);
+  const byPos = {};
+  rows.forEach(p => { byPos[p.position] = (byPos[p.position] || 0) + p.price; });
+  const posOrder = Object.keys(byPos).sort((a, b) => byPos[b] - byPos[a]);
+  const maxPosSpend = Math.max(...posOrder.map(p => byPos[p]), 1);
+
+  const topSpend = Object.entries(TOP_N_BY_POS).map(([pos, n]) => {
+    const list = rows.filter(p => p.position === pos).sort((a, b) => b.price - a.price).slice(0, n);
+    return { pos, n, have: list.length, sum: list.reduce((s, p) => s + p.price, 0), total: rows.filter(p => p.position === pos).length };
+  });
+
+  box.innerHTML = `
+    <div class="summary-grid">
+      <div class="summary-card"><div class="label">${DH.season} Total Spend</div><div class="val">$${totalSpend}</div><div class="sub">${rows.length} picks</div></div>
+      ${topSpend.map(t => `<div class="summary-card"><div class="label">Top ${t.n} ${t.pos} $</div><div class="val">$${t.sum}</div><div class="sub">${t.have < t.n ? `only ${t.have} drafted` : `top ${t.n} of ${t.total}`}</div></div>`).join("")}
+    </div>
+    <div class="pos-spend-wrap">
+      ${posOrder.map(pos => `
+        <div class="pos-spend-bar">
+          <div class="pos-spend-label">${esc(pos)}</div>
+          <div class="pos-spend-track"><div class="pos-spend-fill" style="width:${(byPos[pos] / maxPosSpend * 100).toFixed(1)}%"></div></div>
+          <div class="pos-spend-pct">$${byPos[pos]} (${(byPos[pos] / totalSpend * 100).toFixed(1)}%)</div>
+        </div>`).join("")}
+    </div>`;
+}
+
+// ── Draft History — add/edit/delete (admin only) ──────────────────────────
+let dhEditingId = null;
+function dhOpenAdd() { dhEditingId = null; dhRenderEditPanel({}); }
+function dhOpenEdit(id) {
+  const p = (dhPicks || []).find(x => x.id === id);
+  if (!p) return;
+  dhEditingId = id;
+  dhRenderEditPanel(p);
+}
+function dhCloseEdit() {
+  dhEditingId = null;
+  const el = document.getElementById("dh-edit-panel");
+  if (el) el.innerHTML = "";
+}
+
+function dhRenderEditPanel(p) {
+  const seasons    = (dhPicks || []).map(x => x.season);
+  const defaultSeason = p.season ?? Math.max(DRAFT_START_SEASON, ...seasons, DRAFT_START_SEASON);
+  document.getElementById("dh-edit-panel").innerHTML = `
+    <div class="edit-panel">
+      <h3>${dhEditingId ? "Edit Pick" : "Add Pick"}</h3>
+      <div class="edit-grid">
+        <div class="edit-field"><label>Season</label><input type="number" id="ef-season" value="${defaultSeason}" min="${DRAFT_START_SEASON}"/></div>
+        <div class="edit-field"><label>Owner</label><select id="ef-owner"><option value="">— select —</option>${dhOwnerNickList().map(o => `<option value="${esc(o)}" ${o === p.owner ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></div>
+        <div class="edit-field"><label>Player</label><input type="text" id="ef-player" value="${esc(p.player_name || "")}"/></div>
+        <div class="edit-field"><label>Position</label><select id="ef-position">${DRAFT_POSITIONS.map(pos => `<option value="${pos}" ${pos === p.position ? "selected" : ""}>${pos}</option>`).join("")}</select></div>
+        <div class="edit-field"><label>Price $</label><input type="number" id="ef-price" value="${p.price ?? ""}"/></div>
+        <div class="edit-field checkbox"><label style="margin:0;">Keeper?</label><input type="checkbox" id="ef-keeper" ${p.is_keeper ? "checked" : ""} onchange="document.getElementById('ef-times-wrap').style.display=this.checked?'':'none'"/></div>
+        <div class="edit-field" id="ef-times-wrap" style="display:${p.is_keeper ? "" : "none"};"><label>Times Kept</label><input type="number" id="ef-times" min="1" value="${p.times_kept ?? 1}"/></div>
+        <div class="edit-field"><label>PPG Prev Yr</label><input type="number" step="0.1" id="ef-ppg-prev" value="${p.ppg_prev ?? ""}"/></div>
+        <div class="edit-field"><label>PPG This Yr</label><input type="number" step="0.1" id="ef-ppg-this" value="${p.ppg_this ?? ""}"/></div>
+        <div class="edit-field"><label>Notes</label><input type="text" id="ef-notes" value="${esc(p.notes || "")}"/></div>
+      </div>
+      <div class="edit-actions">
+        <button class="btn" onclick="dhSavePick()">${dhEditingId ? "Save Changes" : "Add Pick"}</button>
+        <button class="btn ghost" onclick="dhCloseEdit()">Cancel</button>
+      </div>
+      <div class="import-result err" id="ef-err" style="display:none;"></div>
+    </div>`;
+}
+
+async function dhSavePick() {
+  const keeperChecked = document.getElementById("ef-keeper").checked;
+  const body = {
+    season:      Number(document.getElementById("ef-season").value),
+    owner:       document.getElementById("ef-owner").value,
+    player_name: document.getElementById("ef-player").value.trim(),
+    position:    document.getElementById("ef-position").value,
+    price:       Number(document.getElementById("ef-price").value),
+    is_keeper:   keeperChecked,
+    times_kept:  keeperChecked ? Number(document.getElementById("ef-times").value || 1) : null,
+    ppg_prev:    document.getElementById("ef-ppg-prev").value === "" ? null : Number(document.getElementById("ef-ppg-prev").value),
+    ppg_this:    document.getElementById("ef-ppg-this").value === "" ? null : Number(document.getElementById("ef-ppg-this").value),
+    notes:       document.getElementById("ef-notes").value.trim() || null,
+  };
+  const errBox = document.getElementById("ef-err");
+  errBox.style.display = "none";
+  if (!body.owner || !body.player_name || !body.position || !body.season || !Number.isFinite(body.price)) {
+    errBox.textContent = "Season, owner, player, position, and price are required.";
+    errBox.style.display = "block";
+    return;
+  }
+  try {
+    const url = dhEditingId ? `${ELITEFFL_API}/picks/${dhEditingId}` : `${ELITEFFL_API}/picks`;
+    const res = await fetch(url, {
+      method: dhEditingId ? "PUT" : "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    dhCloseEdit();
+    await loadDraftPicks(true);
+    dhRender();
+    showToast(dhEditingId ? "Pick updated" : "Pick added");
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.style.display = "block";
+  }
+}
+
+async function dhDelete(id) {
+  if (!confirm("Delete this pick? This can't be undone.")) return;
+  try {
+    const res = await fetch(`${ELITEFFL_API}/picks/${id}`, { method: "DELETE", credentials: "include" });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    await loadDraftPicks(true);
+    dhRenderTable();
+    dhRenderSummary();
+    showToast("Pick deleted");
+  } catch (e) { showToast("Delete failed: " + e.message); }
+}
+
+// ── Draft History — bulk import (admin only) ───────────────────────────────
+let dhImportOpen = false;
+function dhToggleImport() { dhImportOpen = !dhImportOpen; dhRenderImportPanel(); }
+
+function dhRenderImportPanel() {
+  const box = document.getElementById("dh-import-panel");
+  if (!dhImportOpen) { box.innerHTML = ""; return; }
+  const defaultSeason = Math.max(DRAFT_START_SEASON, ...(dhPicks || []).map(p => p.season), DRAFT_START_SEASON);
+  box.innerHTML = `
+    <div class="edit-panel import-panel">
+      <h3>Import a Season</h3>
+      <div class="edit-grid" style="grid-template-columns:160px;max-width:300px;">
+        <div class="edit-field"><label>Default Season</label><input type="number" id="imp-season" value="${defaultSeason}" min="${DRAFT_START_SEASON}"/></div>
+      </div>
+      <p class="import-hint">Paste rows copied from Excel/Sheets (tab-separated) or a CSV. First row must be a header containing any of: Player, Position, Price, Owner, Keeper, Times Kept, PPG Prev, PPG This, Notes, Season (Season is optional — falls back to the Default Season above if that column is missing).</p>
+      <textarea id="imp-text" placeholder="Player&#9;Position&#9;Price&#9;Owner&#9;Keeper&#9;Times Kept&#9;PPG Prev&#9;PPG This"></textarea>
+      <div class="edit-actions" style="margin-top:12px;">
+        <button class="btn" onclick="dhRunImport()">Import Rows</button>
+        <button class="btn ghost" onclick="dhToggleImport()">Cancel</button>
+      </div>
+      <div id="imp-result"></div>
+    </div>`;
+}
+
+function dhParseImportText(text, defaultSeason) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error("Paste a header row plus at least one data row.");
+  const delim  = lines[0].includes("\t") ? "\t" : ",";
+  const header = lines[0].split(delim).map(h => h.trim().toLowerCase());
+
+  const fieldMap = {
+    player_name: ["player", "player name", "name"],
+    position:    ["position", "pos"],
+    price:       ["price", "$", "cost", "amount"],
+    owner:       ["owner", "team", "manager"],
+    is_keeper:   ["keeper", "is keeper", "kept"],
+    times_kept:  ["times kept", "kept count", "times", "kept #", "kept x", "kept ×"],
+    ppg_prev:    ["ppg prev", "prev ppg", "previous year ppg", "ppg previous year"],
+    ppg_this:    ["ppg this", "ppg", "this year ppg", "draft year ppg", "ppg draft year"],
+    notes:       ["notes", "note"],
+    season:      ["season", "year"],
+  };
+  const colIdx = {};
+  Object.entries(fieldMap).forEach(([field, names]) => {
+    const idx = header.findIndex(h => names.includes(h));
+    if (idx > -1) colIdx[field] = idx;
+  });
+  if (colIdx.player_name == null) throw new Error('No "Player" column found in the header row.');
+
+  const ownerNickSet = new Set(dhOwnerNickList());
+  const rows = [];
+  const warnings = [];
+  lines.slice(1).forEach((line, i) => {
+    const cells = line.split(delim).map(c => c.trim());
+    const get = (field) => colIdx[field] != null ? (cells[colIdx[field]] || "") : "";
+    const keeperRaw = get("is_keeper").toLowerCase();
+    const isKeeper  = ["y", "yes", "true", "1", "kept"].includes(keeperRaw);
+    let owner = get("owner");
+    if (owner && !ownerNickSet.has(owner)) {
+      const match = [...ownerNickSet].find(o => o.toLowerCase() === owner.toLowerCase());
+      if (match) owner = match;
+      else warnings.push(`Row ${i + 2}: owner "${owner}" doesn't match a known owner name — check spelling.`);
+    }
+    rows.push({
+      season:      Number(get("season")) || Number(defaultSeason),
+      owner,
+      player_name: get("player_name"),
+      position:    get("position").toUpperCase(),
+      price:       Number(get("price")) || 0,
+      is_keeper:   isKeeper,
+      times_kept:  get("times_kept") ? Number(get("times_kept")) : (isKeeper ? 1 : null),
+      ppg_prev:    get("ppg_prev") !== "" ? Number(get("ppg_prev")) : null,
+      ppg_this:    get("ppg_this") !== "" ? Number(get("ppg_this")) : null,
+      notes:       get("notes") || null,
+    });
+  });
+  return { rows, warnings };
+}
+
+async function dhRunImport() {
+  const text          = document.getElementById("imp-text").value;
+  const defaultSeason = document.getElementById("imp-season").value;
+  const resultBox      = document.getElementById("imp-result");
+  let parsed;
+  try {
+    parsed = dhParseImportText(text, defaultSeason);
+  } catch (e) {
+    resultBox.innerHTML = `<div class="import-result err">${esc(e.message)}</div>`;
+    return;
+  }
+  if (!parsed.rows.length) {
+    resultBox.innerHTML = `<div class="import-result err">No data rows found.</div>`;
+    return;
+  }
+  try {
+    const res = await fetch(`${ELITEFFL_API}/picks/import`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ picks: parsed.rows }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    let msg = `<div class="import-result ok">✔ Imported ${data.imported} row${data.imported === 1 ? "" : "s"}.</div>`;
+    if (parsed.warnings.length) msg += `<div class="import-result err">${parsed.warnings.map(esc).join("<br/>")}</div>`;
+    resultBox.innerHTML = msg;
+    await loadDraftPicks(true);
+    dhRender();
+  } catch (e) {
+    resultBox.innerHTML = `<div class="import-result err">${esc(e.message)}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// KEEPER OPTIONS — working chart for the next draft
+// ═══════════════════════════════════════════════════
+let koOptions = null;
+let koLoaded  = false;
+
+async function loadKeeperOptions(force) {
+  if (koOptions && !force) return koOptions;
+  const res  = await fetch(`${ELITEFFL_API}/keeper-options`, { credentials: "include" });
+  const data = await res.json();
+  koOptions  = data.options || [];
+  return koOptions;
+}
+
+async function initKeeperOptionsTab() {
+  if (koLoaded) return;
+  koLoaded = true;
+  try {
+    await Promise.all([loadDraftPicks(), loadKeeperOptions()]);
+    koRender();
+  } catch (e) {
+    document.getElementById("ko-content").innerHTML = `<div class="error-msg">Couldn't load keeper options: ${esc(e.message)}</div>`;
+  }
+}
+
+function koKeptClass(n) { return n >= 3 ? "k3" : n === 2 ? "k2" : n === 1 ? "k1" : "k0"; }
+
+function koFindPlayerPicks(owner, playerName) {
+  const q = playerName.trim().toLowerCase();
+  return (dhPicks || []).filter(p => p.owner === owner && p.player_name.trim().toLowerCase() === q)
+    .sort((a, b) => b.season - a.season);
+}
+
+// Walks a player's picks for this owner backward from most recent; counts the
+// consecutive-keeper streak and uses the first non-keeper pick hit as the
+// true original price (falls back to the oldest known row if history doesn't
+// reach that far back).
+function koDeriveSuggestion(owner, playerName) {
+  const picks = koFindPlayerPicks(owner, playerName);
+  if (!picks.length) return { originalPrice: null, timesKept: 1, ppg: null, position: null };
+  let streak = 0, originalPrice = picks[0].price;
+  for (const p of picks) {
+    originalPrice = p.price;
+    if (p.is_keeper) streak++; else break;
+  }
+  const mostRecent = picks[0];
+  return { originalPrice, timesKept: streak + 1, ppg: mostRecent.ppg_this, position: mostRecent.position };
+}
+
+function koRender() {
+  document.getElementById("ko-admin-badge").style.display = isAdmin() ? "" : "none";
+  const owners = dhOwnerNickList();
+  const grid = owners.map(owner => {
+    const players = (koOptions || []).filter(o => o.owner === owner)
+      .sort((a, b) => (a.player_name || "").localeCompare(b.player_name || ""));
+    const rowsHtml = players.length ? players.map(koPlayerRow).join("") : `<div class="keeper-empty">No eligible keepers listed</div>`;
+    return `<div class="keeper-col">
+      <div class="keeper-col-head">${esc(owner)}</div>
+      ${rowsHtml}
+      ${isAdmin() ? koAddRowHtml(owner) : ""}
+    </div>`;
+  }).join("");
+  document.getElementById("ko-content").innerHTML = `<div class="keeper-grid">${grid}</div>`;
+}
+
+function koPlayerRow(o) {
+  const badgeCls   = koKeptClass(o.times_kept || 0);
+  const badgeLabel = (o.times_kept || 0) >= 3 ? "3+" : String(o.times_kept || 0);
+  return `<div class="keeper-player">
+    <div class="keeper-player-name">
+      <span>${esc(o.player_name)} <span style="opacity:0.6;font-size:0.75rem;">${esc(o.position || "")}</span></span>
+      <span class="kept-badge ${badgeCls}" title="${isAdmin() ? "Click to cycle kept count" : "Times kept"}" ${isAdmin() ? `onclick="koCycleKept(${o.id})"` : ""}>${badgeLabel}</span>
+    </div>
+    <div class="keeper-player-meta">
+      <span>Cost: ${o.keeper_cost != null ? "$" + o.keeper_cost : "—"}</span>
+      <span>PPG: ${o.ppg != null ? o.ppg.toFixed(1) : "—"}</span>
+    </div>
+    ${isAdmin() ? `<div class="keeper-player-links"><a onclick="koOpenEdit(${o.id})">Edit</a><a onclick="koDelete(${o.id})">Remove</a></div>` : ""}
+  </div>`;
+}
+
+function koAddRowHtml(owner) {
+  const safeId = owner.replace(/[^a-z0-9]/gi, "");
+  const names  = [...new Set((dhPicks || []).filter(p => p.owner === owner).map(p => p.player_name))].sort();
+  return `<div class="keeper-add-row">
+    <input type="text" list="ko-players-${safeId}" placeholder="Add player…" id="ko-new-name-${safeId}" onchange="koSuggestFromPick('${esc(owner)}')"/>
+    <datalist id="ko-players-${safeId}">${names.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
+    <select id="ko-new-pos-${safeId}">${DRAFT_POSITIONS.map(p => `<option value="${p}">${p}</option>`).join("")}</select>
+    <button class="btn small" style="width:100%;" onclick="koAddPlayer('${esc(owner)}')">+ Add</button>
+  </div>`;
+}
+
+function koSuggestFromPick(owner) {
+  const safeId    = owner.replace(/[^a-z0-9]/gi, "");
+  const nameInput = document.getElementById(`ko-new-name-${safeId}`);
+  const posSelect = document.getElementById(`ko-new-pos-${safeId}`);
+  const sugg = koDeriveSuggestion(owner, nameInput.value.trim());
+  if (sugg.position) posSelect.value = sugg.position;
+}
+
+async function koAddPlayer(owner) {
+  const safeId    = owner.replace(/[^a-z0-9]/gi, "");
+  const nameInput = document.getElementById(`ko-new-name-${safeId}`);
+  const posSelect = document.getElementById(`ko-new-pos-${safeId}`);
+  const name = nameInput.value.trim();
+  if (!name) return;
+  const sugg = koDeriveSuggestion(owner, name);
+  const body = {
+    owner, player_name: name,
+    position:       sugg.position || posSelect.value,
+    times_kept:     sugg.timesKept,
+    original_price: sugg.originalPrice,
+    keeper_cost:    sugg.originalPrice != null ? keeperCumulativeCost(sugg.originalPrice, sugg.timesKept) : null,
+    ppg:            sugg.ppg,
+  };
+  try {
+    const res = await fetch(`${ELITEFFL_API}/keeper-options`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    nameInput.value = "";
+    await loadKeeperOptions(true);
+    koRender();
+  } catch (e) { showToast("Couldn't add player: " + e.message); }
+}
+
+async function koCycleKept(id) {
+  const o = (koOptions || []).find(x => x.id === id);
+  if (!o) return;
+  const next    = ((o.times_kept || 0) + 1) % 4; // 0 → 1 → 2 → 3 → 0
+  const newCost = o.original_price != null ? keeperCumulativeCost(o.original_price, next) : o.keeper_cost;
+  await koPatch(id, { times_kept: next, keeper_cost: newCost });
+}
+
+async function koPatch(id, partial) {
+  const o = (koOptions || []).find(x => x.id === id);
+  if (!o) return;
+  const body = {
+    owner: o.owner, player_name: o.player_name, position: o.position, times_kept: o.times_kept,
+    original_price: o.original_price, keeper_cost: o.keeper_cost, ppg: o.ppg, notes: o.notes,
+    sort_order: o.sort_order, ...partial,
+  };
+  try {
+    const res = await fetch(`${ELITEFFL_API}/keeper-options/${id}`, {
+      method: "PUT", credentials: "include",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    await loadKeeperOptions(true);
+    koRender();
+  } catch (e) { showToast("Update failed: " + e.message); }
+}
+
+async function koDelete(id) {
+  if (!confirm("Remove this player from keeper options?")) return;
+  try {
+    const res = await fetch(`${ELITEFFL_API}/keeper-options/${id}`, { method: "DELETE", credentials: "include" });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    await loadKeeperOptions(true);
+    koRender();
+  } catch (e) { showToast("Delete failed: " + e.message); }
+}
+
+function koOpenEdit(id) {
+  const o = (koOptions || []).find(x => x.id === id);
+  if (!o) return;
+  document.getElementById("ko-add-panel").innerHTML = `
+    <div class="edit-panel">
+      <h3>Edit Keeper Option — ${esc(o.owner)}</h3>
+      <div class="edit-grid">
+        <div class="edit-field"><label>Player</label><input type="text" id="ko-ef-name" value="${esc(o.player_name)}"/></div>
+        <div class="edit-field"><label>Position</label><select id="ko-ef-pos">${DRAFT_POSITIONS.map(p => `<option value="${p}" ${p === o.position ? "selected" : ""}>${p}</option>`).join("")}</select></div>
+        <div class="edit-field"><label>Times Kept</label><input type="number" id="ko-ef-kept" value="${o.times_kept || 0}" min="0"/></div>
+        <div class="edit-field"><label>Original $</label><input type="number" id="ko-ef-orig" value="${o.original_price ?? ""}"/></div>
+        <div class="edit-field"><label>Keeper Cost $</label><input type="number" id="ko-ef-cost" value="${o.keeper_cost ?? ""}"/></div>
+        <div class="edit-field"><label>PPG</label><input type="number" step="0.1" id="ko-ef-ppg" value="${o.ppg ?? ""}"/></div>
+        <div class="edit-field"><label>Notes</label><input type="text" id="ko-ef-notes" value="${esc(o.notes || "")}"/></div>
+      </div>
+      <div class="edit-actions">
+        <button class="btn" onclick="koSaveEdit(${id})">Save</button>
+        <button class="btn ghost" onclick="document.getElementById('ko-add-panel').innerHTML=''">Cancel</button>
+        <button class="btn ghost" onclick="koRecalcCost()" title="Recalculate cost from Original $ and Times Kept using the standard formula">↺ Recalc from formula</button>
+      </div>
+    </div>`;
+  document.getElementById("panel-keeperOptions").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function koRecalcCost() {
+  const orig = Number(document.getElementById("ko-ef-orig").value);
+  const kept = Number(document.getElementById("ko-ef-kept").value);
+  if (Number.isFinite(orig)) document.getElementById("ko-ef-cost").value = keeperCumulativeCost(orig, kept);
+}
+
+async function koSaveEdit(id) {
+  const o = (koOptions || []).find(x => x.id === id);
+  if (!o) return;
+  const body = {
+    owner: o.owner,
+    player_name:    document.getElementById("ko-ef-name").value.trim(),
+    position:       document.getElementById("ko-ef-pos").value,
+    times_kept:     Number(document.getElementById("ko-ef-kept").value) || 0,
+    original_price: document.getElementById("ko-ef-orig").value === "" ? null : Number(document.getElementById("ko-ef-orig").value),
+    keeper_cost:    document.getElementById("ko-ef-cost").value === "" ? null : Number(document.getElementById("ko-ef-cost").value),
+    ppg:            document.getElementById("ko-ef-ppg").value  === "" ? null : Number(document.getElementById("ko-ef-ppg").value),
+    notes:          document.getElementById("ko-ef-notes").value.trim() || null,
+    sort_order:     o.sort_order || 0,
+  };
+  try {
+    const res = await fetch(`${ELITEFFL_API}/keeper-options/${id}`, {
+      method: "PUT", credentials: "include",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById("ko-add-panel").innerHTML = "";
+    await loadKeeperOptions(true);
+    koRender();
+    showToast("Keeper option updated");
+  } catch (e) { showToast("Save failed: " + e.message); }
+}
+
+// ═══════════════════════════════════════════════════
+// KEEPER HISTORY — derived read-only view of Draft History's keeper rows
+// ═══════════════════════════════════════════════════
+let khLoaded = false;
+async function initKeeperHistoryTab() {
+  if (khLoaded) return;
+  khLoaded = true;
+  try {
+    await loadDraftPicks();
+    khRender();
+  } catch (e) {
+    document.getElementById("kh-content").innerHTML = `<div class="error-msg">Couldn't build keeper history: ${esc(e.message)}</div>`;
+  }
+}
+
+function khRender() {
+  const owners     = dhOwnerNickList();
+  const keeperRows = (dhPicks || []).filter(p => p.is_keeper && p.season >= KEEPER_START_SEASON);
+  const seasons    = [...new Set(keeperRows.map(p => p.season))].sort((a, b) => a - b);
+
+  if (!seasons.length) {
+    document.getElementById("kh-content").innerHTML =
+      `<div class="placeholder-state"><div class="icon">📖</div><p>No keeper picks recorded yet for ${KEEPER_START_SEASON} onward.</p></div>`;
+    return;
+  }
+
+  const th = `<th>Year</th>${owners.map(o => `<th>${esc(o)}</th>`).join("")}`;
+  let body = "";
+  seasons.forEach(season => {
+    const byOwner = {};
+    owners.forEach(o => {
+      byOwner[o] = keeperRows.filter(p => p.season === season && p.owner === o).sort((a, b) => b.price - a.price);
+    });
+    for (let slot = 0; slot < 2; slot++) {
+      body += `<tr>${slot === 0 ? `<td class="year-cell" rowspan="2">${season}</td>` : ""}`;
+      owners.forEach(o => {
+        const p = byOwner[o][slot];
+        body += p ? `<td>${esc(p.player_name)} <span style="opacity:0.6;">($${p.price})</span></td>` : `<td class="empty-cell">—</td>`;
+      });
+      body += `</tr>`;
+    }
+  });
+
+  document.getElementById("kh-content").innerHTML = `
+    <div class="kh-table-wrap"><table class="kh-table"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
+    <p class="table-footnote" style="margin-top:12px;">Two rows per season (max keepers per team) — blank when an owner kept fewer than two. Sorted by keeper price within a season.</p>`;
 }
 
 // ═══════════════════════════════════════════════════
