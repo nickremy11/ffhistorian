@@ -194,6 +194,14 @@
     .summary-card .label { font-family:'Rye',serif; font-size:0.52rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--brown-light); margin-bottom:6px; }
     .summary-card .val { font-family:'Playfair Display',serif; font-weight:700; font-size:1.1rem; color:var(--brown-dark); }
     .summary-card .sub { font-size:0.75rem; color:var(--brown-light); margin-top:2px; }
+    .summary-pos-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:16px; }
+    .summary-pos-card { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; padding:12px 14px; box-shadow:3px 3px 0 var(--brown-mid); }
+    .summary-pos-head { font-family:'Rye',serif; font-size:0.7rem; letter-spacing:0.15em; color:var(--gold-light); text-transform:uppercase; margin-bottom:8px; text-align:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px; }
+    .tier-row { display:flex; justify-content:space-between; align-items:baseline; font-family:'Crimson Text',serif; font-size:0.85rem; color:var(--parchment); padding:3px 0; }
+    .tier-row span:first-child { opacity:0.7; }
+    .tier-row span:last-child { font-weight:600; color:var(--cream); }
+    .tier-short { font-weight:400 !important; color:var(--parchment) !important; opacity:0.55; font-size:0.7rem; }
+    .summary-pos-keepers { margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1); text-align:center; font-family:'Rye',serif; font-size:0.58rem; letter-spacing:0.1em; color:var(--gold); text-transform:uppercase; }
     .pos-spend-wrap { background:var(--parchment); border:2px solid var(--brown-mid); border-radius:2px; padding:16px 18px; margin-bottom:24px; }
     .pos-spend-bar { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
     .pos-spend-bar:last-child { margin-bottom:0; }
@@ -247,6 +255,13 @@
     .kh-table td.year-cell { font-family:'Rye',serif; font-size:0.7rem; color:var(--gold); background:rgba(255,255,255,0.03); }
     .kh-table td.empty-cell { color:var(--brown-light); opacity:0.4; }
 
+    /* ── SPENDING TRENDS ── */
+    .trend-legend { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+    .trend-legend-item { display:inline-flex; align-items:center; gap:6px; font-family:'Rye',serif; font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--brown-dark); }
+    .trend-swatch { width:12px; height:12px; border-radius:2px; display:inline-block; flex-shrink:0; }
+    .trend-chart-wrap { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; padding:16px; box-shadow:4px 4px 0 var(--brown-mid); margin-bottom:20px; }
+    .trend-svg { width:100%; height:auto; display:block; }
+
     /* ── UTILITY ── */
     .placeholder-state { text-align: center; padding: 60px 20px; border: 2px dashed var(--brown-mid); border-radius: 2px; }
     .placeholder-state .icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
@@ -291,6 +306,7 @@
       <button class="tab-btn" onclick="switchTab('draftHistory', this)">📋 Draft History</button>
       <button class="tab-btn" onclick="switchTab('keeperOptions', this)">🔒 Keeper Options</button>
       <button class="tab-btn" onclick="switchTab('keeperHistory', this)">📖 Keeper History</button>
+      <button class="tab-btn" onclick="switchTab('spendingTrends', this)">📈 Spending Trends</button>
       <button class="tab-btn" onclick="switchTab('trades', this)">🔄 Trade History</button>
       <button class="tab-btn" onclick="switchTab('records', this)">🏅 League Records</button>
     </div>
@@ -362,6 +378,13 @@
       <div class="section-head"><h2>Keeper History</h2><div class="section-head-line"></div></div>
       <p class="import-hint" style="margin:-10px 0 18px;">Every player actually kept each year since keepers began, two rows per season (blank when an owner kept fewer than two). Derived automatically from Draft History.</p>
       <div id="kh-content"><div class="loading"><div class="spinner"></div><br/>Building keeper history…</div></div>
+    </section>
+
+    <!-- SPENDING TRENDS -->
+    <section class="panel" id="panel-spendingTrends">
+      <div class="section-head"><h2>Position Spending Trends</h2><div class="section-head-line"></div></div>
+      <p class="import-hint" style="margin:-10px 0 18px;">How draft-day spending on each position has shifted year to year. Kicker and D/ST excluded.</p>
+      <div id="st-content"><div class="loading"><div class="spinner"></div><br/>Crunching spending trends…</div></div>
     </section>
 
     <!-- TRADE HISTORY -->
@@ -447,7 +470,9 @@ const ELITEFFL_API        = "https://helper.ffhistorian.com/api/eliteffl";
 const DRAFT_START_SEASON  = 2019;  // first salary-cap auction draft
 const KEEPER_START_SEASON = 2021;  // first draft keepers were used on (based on 2020 prices)
 const DRAFT_POSITIONS     = ["QB","RB","WR","TE","DST","K"];
-const TOP_N_BY_POS        = { QB: 12, RB: 30, WR: 42, TE: 12 };
+const TOP_TIERS_BY_POS     = { QB: [3, 6, 12], TE: [3, 6, 12], RB: [6, 12, 24, 36], WR: [6, 12, 24, 36, 48] };
+const TREND_POSITIONS      = ["QB", "RB", "WR", "TE"]; // Spending Trends — K/D-ST excluded
+const TREND_COLORS         = { QB: "#c9962a", RB: "#4a7a2f", WR: "#a8352a", TE: "#2f8ca0" };
 
 // Cumulative keeper markup over the player's ORIGINAL draft price:
 // 1st keep +$5, 2nd +$10 more (+$15 total), 3rd +$20 more (+$35 total), 4th +$40 more (+$75), doubling on.
@@ -537,6 +562,7 @@ function switchTab(tab, btn) {
   if (tab === "draftHistory")  initDraftHistoryTab();
   if (tab === "keeperOptions") initKeeperOptionsTab();
   if (tab === "keeperHistory") initKeeperHistoryTab();
+  if (tab === "spendingTrends") initSpendingTrendsTab();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1362,21 +1388,36 @@ function dhRenderSummary() {
   if (!rows.length) { box.innerHTML = ""; return; }
 
   const totalSpend = rows.reduce((s, p) => s + p.price, 0);
+  const keeperRows = rows.filter(p => p.is_keeper);
+  const keeperSpend = keeperRows.reduce((s, p) => s + p.price, 0);
+
   const byPos = {};
   rows.forEach(p => { byPos[p.position] = (byPos[p.position] || 0) + p.price; });
   const posOrder = Object.keys(byPos).sort((a, b) => byPos[b] - byPos[a]);
   const maxPosSpend = Math.max(...posOrder.map(p => byPos[p]), 1);
 
-  const topSpend = Object.entries(TOP_N_BY_POS).map(([pos, n]) => {
-    const list = rows.filter(p => p.position === pos).sort((a, b) => b.price - a.price).slice(0, n);
-    return { pos, n, have: list.length, sum: list.reduce((s, p) => s + p.price, 0), total: rows.filter(p => p.position === pos).length };
-  });
+  const posCards = Object.entries(TOP_TIERS_BY_POS).map(([pos, tiers]) => {
+    const list = rows.filter(p => p.position === pos).sort((a, b) => b.price - a.price);
+    const keeperCount = list.filter(p => p.is_keeper).length;
+    const tierRows = tiers.map(n => {
+      const slice = list.slice(0, n);
+      const sum = slice.reduce((s, p) => s + p.price, 0);
+      const short = slice.length < n ? ` <span class="tier-short">(only ${slice.length})</span>` : "";
+      return `<div class="tier-row"><span>Top ${n}</span><span>$${sum}${short}</span></div>`;
+    }).join("");
+    return `<div class="summary-pos-card">
+      <div class="summary-pos-head">${pos}</div>
+      ${tierRows}
+      <div class="summary-pos-keepers">${keeperCount} keeper${keeperCount === 1 ? "" : "s"}</div>
+    </div>`;
+  }).join("");
 
   box.innerHTML = `
     <div class="summary-grid">
       <div class="summary-card"><div class="label">${DH.season} Total Spend</div><div class="val">$${totalSpend}</div><div class="sub">${rows.length} picks</div></div>
-      ${topSpend.map(t => `<div class="summary-card"><div class="label">Top ${t.n} ${t.pos} $</div><div class="val">$${t.sum}</div><div class="sub">${t.have < t.n ? `only ${t.have} drafted` : `top ${t.n} of ${t.total}`}</div></div>`).join("")}
+      <div class="summary-card"><div class="label">Keeper $ Spend</div><div class="val">$${keeperSpend}</div><div class="sub">${totalSpend ? (keeperSpend / totalSpend * 100).toFixed(1) : "0.0"}% of total · ${keeperRows.length} keeper${keeperRows.length === 1 ? "" : "s"}</div></div>
     </div>
+    <div class="summary-pos-grid">${posCards}</div>
     <div class="pos-spend-wrap">
       ${posOrder.map(pos => `
         <div class="pos-spend-bar">
@@ -1930,6 +1971,128 @@ function khRender() {
   document.getElementById("kh-content").innerHTML = `
     <div class="kh-table-wrap"><table class="kh-table"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>
     <p class="table-footnote" style="margin-top:12px;">Two rows per season (max keepers per team) — blank when an owner kept fewer than two. Sorted by keeper price within a season.</p>`;
+}
+
+// ═══════════════════════════════════════════════════
+// SPENDING TRENDS — position $ / % of draft spend, by year
+// ═══════════════════════════════════════════════════
+const ST = { mode: "pct" }; // pct | dollar
+let stLoaded = false;
+
+async function initSpendingTrendsTab() {
+  if (stLoaded) return;
+  stLoaded = true;
+  try {
+    await loadDraftPicks();
+    stRender();
+  } catch (e) {
+    document.getElementById("st-content").innerHTML = `<div class="error-msg">Couldn't build spending trends: ${esc(e.message)}</div>`;
+  }
+}
+
+function stSetMode(mode) { ST.mode = mode; stRender(); }
+
+// One entry per season: { season, total, byPos: {QB,RB,WR,TE} } — total includes
+// every position (K/D-ST too) so % reflects true share of that year's whole budget;
+// only the four skill positions get plotted, per "ignore Kicker and DST for this".
+function stComputeData() {
+  const seasons = [...new Set((dhPicks || []).map(p => p.season))].sort((a, b) => a - b);
+  return seasons.map(season => {
+    const rows = dhPicks.filter(p => p.season === season);
+    const total = rows.reduce((s, p) => s + p.price, 0);
+    const byPos = {};
+    TREND_POSITIONS.forEach(pos => {
+      byPos[pos] = rows.filter(p => p.position === pos).reduce((s, p) => s + p.price, 0);
+    });
+    return { season, total, byPos };
+  });
+}
+
+function stValue(d, pos) {
+  return ST.mode === "pct" ? (d.total ? d.byPos[pos] / d.total * 100 : 0) : d.byPos[pos];
+}
+
+function stRenderChart(data) {
+  const W = 760, H = 320, padL = 55, padR = 20, padT = 20, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = data.length;
+
+  let maxVal = 0;
+  TREND_POSITIONS.forEach(pos => data.forEach(d => { maxVal = Math.max(maxVal, stValue(d, pos)); }));
+  maxVal = ST.mode === "pct"
+    ? (Math.ceil((maxVal + 5) / 5) * 5 || 10)
+    : (Math.ceil((maxVal * 1.1) / 10) * 10 || 10);
+
+  const xFor = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yFor = (v) => padT + plotH - (v / maxVal) * plotH;
+
+  const gridCount = 5;
+  let gridLines = "";
+  for (let g = 0; g <= gridCount; g++) {
+    const v = (maxVal / gridCount) * g;
+    const y = yFor(v);
+    gridLines += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+    gridLines += `<text x="${padL - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="#e8d5b0" opacity="0.75">${ST.mode === "pct" ? Math.round(v) + "%" : "$" + Math.round(v)}</text>`;
+  }
+
+  let xLabels = "";
+  data.forEach((d, i) => {
+    xLabels += `<text x="${xFor(i).toFixed(1)}" y="${H - padB + 20}" text-anchor="middle" font-size="11" fill="#e8d5b0" opacity="0.75">${d.season}</text>`;
+  });
+
+  let lines = "";
+  TREND_POSITIONS.forEach(pos => {
+    const pts = data.map((d, i) => `${xFor(i).toFixed(1)},${yFor(stValue(d, pos)).toFixed(1)}`).join(" ");
+    const dots = data.map((d, i) => `<circle cx="${xFor(i).toFixed(1)}" cy="${yFor(stValue(d, pos)).toFixed(1)}" r="3.5" fill="${TREND_COLORS[pos]}"/>`).join("");
+    lines += `<polyline points="${pts}" fill="none" stroke="${TREND_COLORS[pos]}" stroke-width="2.5"/>${dots}`;
+  });
+
+  const legend = TREND_POSITIONS.map(pos =>
+    `<span class="trend-legend-item"><span class="trend-swatch" style="background:${TREND_COLORS[pos]}"></span>${pos}</span>`
+  ).join("");
+
+  return `
+    <div class="trend-legend">${legend}</div>
+    <div class="trend-chart-wrap">
+      <svg viewBox="0 0 ${W} ${H}" class="trend-svg">
+        ${gridLines}
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB}" stroke="var(--gold)" stroke-width="1.5"/>
+        <line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="var(--gold)" stroke-width="1.5"/>
+        ${lines}
+        ${xLabels}
+      </svg>
+    </div>`;
+}
+
+function stRenderTable(data) {
+  const th = `<th>Year</th>${TREND_POSITIONS.map(p => `<th>${p}</th>`).join("")}<th>Total $</th>`;
+  const rowsHtml = data.map(d => {
+    const cells = TREND_POSITIONS.map(pos => {
+      const v = stValue(d, pos);
+      return `<td>${ST.mode === "pct" ? v.toFixed(1) + "%" : "$" + v}</td>`;
+    }).join("");
+    return `<tr><td>${d.season}</td>${cells}<td>$${d.total}</td></tr>`;
+  }).join("");
+  return `<div class="data-table-wrap"><table class="data-table"><thead><tr>${th}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+}
+
+function stRender() {
+  const data = stComputeData();
+  const box = document.getElementById("st-content");
+  if (!data.length) {
+    box.innerHTML = `<div class="placeholder-state"><div class="icon">📈</div><p>No draft data yet.</p></div>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="tab-actions" style="justify-content:flex-start;">
+      <div class="keeper-toggle">
+        <button type="button" class="keeper-toggle-btn ${ST.mode === "pct" ? "active" : ""}" onclick="stSetMode('pct')">% of Spend</button>
+        <button type="button" class="keeper-toggle-btn ${ST.mode === "dollar" ? "active" : ""}" onclick="stSetMode('dollar')">$ Spend</button>
+      </div>
+    </div>
+    ${stRenderChart(data)}
+    ${stRenderTable(data)}
+    <p class="table-footnote">${ST.mode === "pct" ? "% is each position's share of that season's total draft spend (K/D-ST included in the total, excluded from the lines)." : "Total $ spent on each position that season."}</p>`;
 }
 
 // ═══════════════════════════════════════════════════
