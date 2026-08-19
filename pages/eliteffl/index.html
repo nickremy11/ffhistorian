@@ -484,6 +484,25 @@ function normalizePlayerName(name) {
   return String(name || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
 }
 
+// Priority: the league's own configured default auction $ list (`draftAuctionValue`
+// — exactly what ESPN's "Edit Salary Cap Draft List" commissioner tool shows/edits)
+// is the real, league-specific number and needs no scoring-format guessing. Only
+// fall back to the generic STANDARD/PPR-averaged rank-type buckets (no half-PPR
+// bucket exists in ESPN's data) for any player ESPN hasn't priced into that list
+// yet (draftAuctionValue missing or 0 — treated as "not set").
+function espnValueForEntry(entry) {
+  const pl = entry.player || entry;
+  if (entry.draftAuctionValue > 0) return Math.round(entry.draftAuctionValue);
+  const ranks = pl.draftRanksByRankType || {};
+  const std = ranks.STANDARD?.auctionValue;
+  const ppr = ranks.PPR?.auctionValue;
+  if (std != null && ppr != null) return Math.round((std + ppr) / 2);
+  if (ppr != null) return ppr;
+  if (std != null) return std;
+  if (pl.ownership?.auctionValueAverage != null) return Math.round(pl.ownership.auctionValueAverage);
+  return null;
+}
+
 // ── Draft History / Keeper Options / Keeper History config ────────────────
 const ELITEFFL_API        = "https://helper.ffhistorian.com/api/eliteffl";
 const HELPER_API          = "https://helper.ffhistorian.com/api"; // shared login/ESPN endpoints (same session as ELITEFFL_API)
@@ -2079,13 +2098,11 @@ async function koSaveEdit(id) {
   } catch (e) { showToast("Save failed: " + e.message); }
 }
 
-// Pulls ESPN's real kona_player_info auction valuations (same source + half-PPR
-// averaging as the sleeper-helper Auction Draft Tracker's CSV export) using
-// whatever ESPN league is linked on this admin's sleeper-helper profile, and
-// PATCHes espn_value onto every matching Keeper Options row by name. ESPN only
-// publishes 4 rank buckets (STANDARD/PPR/ELIMINATION/SUPERFLEX) — no half-PPR
-// bucket exists — so STANDARD (0 pts/rec) averaged with PPR (1 pt/rec) is the
-// exact value for a 0.5 PPR league specifically, not a generic approximation.
+// Pulls ESPN's real kona_player_info auction valuations (same source + priority
+// logic as the sleeper-helper Auction Draft Tracker's CSV export — see
+// espnValueForEntry() above) using whatever ESPN league is linked on this admin's
+// sleeper-helper profile, and PATCHes espn_value onto every matching Keeper
+// Options row by name.
 let koEspnFillBusy = false;
 async function koAutoFillEspnValues() {
   if (koEspnFillBusy) return;
@@ -2117,15 +2134,8 @@ async function koAutoFillEspnValues() {
       const pl = entry.player || entry;
       const name = pl.fullName;
       if (!name) return;
-      const ranks = pl.draftRanksByRankType || {};
-      const std = ranks.STANDARD?.auctionValue;
-      const ppr = ranks.PPR?.auctionValue;
-      let val;
-      if (std != null && ppr != null) val = Math.round((std + ppr) / 2);
-      else if (ppr != null) val = ppr;
-      else if (std != null) val = std;
-      else if (pl.ownership?.auctionValueAverage != null) val = Math.round(pl.ownership.auctionValueAverage);
-      else return;
+      const val = espnValueForEntry(entry);
+      if (val == null) return;
       valByName.set(normalizePlayerName(name), val);
     });
 
