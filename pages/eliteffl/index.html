@@ -381,6 +381,7 @@
       </div>
       <div class="tab-actions admin-only" id="ko-admin-actions" style="display:none;">
         <button class="btn ghost" onclick="koToggleImport()">⬆ Bulk Import</button>
+        <button class="btn ghost" id="ko-espn-fill-btn" onclick="koAutoFillEspnValues()">🔗 Auto-fill ESPN $</button>
       </div>
       <div id="ko-import-panel"></div>
       <div id="ko-add-panel"></div>
@@ -479,8 +480,13 @@ function esc(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+function normalizePlayerName(name) {
+  return String(name || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
 // ── Draft History / Keeper Options / Keeper History config ────────────────
 const ELITEFFL_API        = "https://helper.ffhistorian.com/api/eliteffl";
+const HELPER_API          = "https://helper.ffhistorian.com/api"; // shared login/ESPN endpoints (same session as ELITEFFL_API)
 const DRAFT_START_SEASON  = 2019;  // first salary-cap auction draft
 const KEEPER_START_SEASON = 2021;  // first draft keepers were used on (based on 2020 prices)
 const DRAFT_POSITIONS     = ["QB","RB","WR","TE","DST","K"];
@@ -2071,6 +2077,95 @@ async function koSaveEdit(id) {
     koRender();
     showToast("Keeper option updated");
   } catch (e) { showToast("Save failed: " + e.message); }
+}
+
+// Pulls ESPN's real kona_player_info auction valuations (same source + half-PPR
+// averaging as the sleeper-helper Auction Draft Tracker's CSV export) using
+// whatever ESPN league is linked on this admin's sleeper-helper profile, and
+// PATCHes espn_value onto every matching Keeper Options row by name. ESPN only
+// publishes 4 rank buckets (STANDARD/PPR/ELIMINATION/SUPERFLEX) — no half-PPR
+// bucket exists — so STANDARD (0 pts/rec) averaged with PPR (1 pt/rec) is the
+// exact value for a 0.5 PPR league specifically, not a generic approximation.
+let koEspnFillBusy = false;
+async function koAutoFillEspnValues() {
+  if (koEspnFillBusy) return;
+  const btn = document.getElementById("ko-espn-fill-btn");
+  const origLabel = btn ? btn.textContent : null;
+  koEspnFillBusy = true;
+  if (btn) { btn.disabled = true; btn.textContent = "Loading ESPN $…"; }
+  try {
+    const settingsRes = await fetch(`${HELPER_API}/espn/settings`, { credentials: "include" });
+    if (!settingsRes.ok) throw new Error("Couldn't load your ESPN settings — sign in and check /myprofile.");
+    const settings = await settingsRes.json();
+    const leagueId = (settings.league_ids || [])[0];
+    if (!leagueId) throw new Error("No ESPN league linked on your profile (set one at /myprofile).");
+
+    const filter = JSON.stringify({
+      players: { limit: 4000, sortDraftRanks: { sortPriority: 100, sortAsc: true, value: "STANDARD" } },
+    });
+    const r = await fetch(`${HELPER_API}/espn/fantasy/${leagueId}?view=kona_player_info&scoringPeriodId=0`, {
+      credentials: "include",
+      headers: { "X-Fantasy-Filter": filter },
+    });
+    if (!r.ok) throw new Error(`ESPN returned ${r.status}`);
+    const d = await r.json();
+    const list = d.players || [];
+    if (!list.length) throw new Error("ESPN returned no players.");
+
+    const valByName = new Map();
+    list.forEach(entry => {
+      const pl = entry.player || entry;
+      const name = pl.fullName;
+      if (!name) return;
+      const ranks = pl.draftRanksByRankType || {};
+      const std = ranks.STANDARD?.auctionValue;
+      const ppr = ranks.PPR?.auctionValue;
+      let val;
+      if (std != null && ppr != null) val = Math.round((std + ppr) / 2);
+      else if (ppr != null) val = ppr;
+      else if (std != null) val = std;
+      else if (pl.ownership?.auctionValueAverage != null) val = Math.round(pl.ownership.auctionValueAverage);
+      else return;
+      valByName.set(normalizePlayerName(name), val);
+    });
+
+    const options = await loadKeeperOptions(true);
+    const toUpdate = options.filter(o => {
+      const val = valByName.get(normalizePlayerName(o.player_name));
+      return val != null && val !== o.espn_value;
+    });
+
+    let updated = 0, failed = 0;
+    for (const o of toUpdate) {
+      const val = valByName.get(normalizePlayerName(o.player_name));
+      const body = {
+        owner: o.owner, player_name: o.player_name, position: o.position, times_kept: o.times_kept,
+        original_price: o.original_price, keeper_cost: o.keeper_cost, ppg: o.ppg,
+        espn_value: val, notes: o.notes, sort_order: o.sort_order,
+      };
+      try {
+        const res = await fetch(`${ELITEFFL_API}/keeper-options/${o.id}`, {
+          method: "PUT", credentials: "include",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        updated++;
+      } catch (_) { failed++; }
+    }
+
+    const unmatched = options.filter(o => !valByName.has(normalizePlayerName(o.player_name))).length;
+    await loadKeeperOptions(true);
+    koRender();
+    showToast(`✓ ESPN $ updated for ${updated} player${updated === 1 ? "" : "s"}`
+      + (unmatched ? ` — ${unmatched} not found on ESPN` : "")
+      + (failed ? ` — ${failed} failed to save` : ""));
+  } catch (e) {
+    showToast("ESPN $ auto-fill failed: " + e.message);
+  } finally {
+    koEspnFillBusy = false;
+    if (btn) { btn.disabled = false; btn.textContent = origLabel; }
+  }
 }
 
 // ═══════════════════════════════════════════════════
