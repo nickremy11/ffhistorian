@@ -2135,7 +2135,7 @@ async function koAutoFillEspnValues() {
       return val != null && val !== o.espn_value;
     });
 
-    let updated = 0, failed = 0;
+    let updated = 0, failed = 0, firstErr = null;
     for (const o of toUpdate) {
       const val = valByName.get(normalizePlayerName(o.player_name));
       const body = {
@@ -2148,10 +2148,16 @@ async function koAutoFillEspnValues() {
           method: "PUT", credentials: "include",
           headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
         });
-        const data = await res.json();
+        let data;
+        try { data = await res.json(); } catch { throw new Error(`HTTP ${res.status} (non-JSON response)`); }
         if (data.error) throw new Error(data.error);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         updated++;
-      } catch (_) { failed++; }
+      } catch (e) {
+        failed++;
+        console.error("ESPN $ save failed for", o.player_name, e);
+        if (!firstErr) firstErr = e.message;
+      }
     }
 
     const unmatched = options.filter(o => !valByName.has(normalizePlayerName(o.player_name))).length;
@@ -2159,7 +2165,7 @@ async function koAutoFillEspnValues() {
     koRender();
     showToast(`✓ ESPN $ updated for ${updated} player${updated === 1 ? "" : "s"}`
       + (unmatched ? ` — ${unmatched} not found on ESPN` : "")
-      + (failed ? ` — ${failed} failed to save` : ""));
+      + (failed ? ` — ${failed} failed to save (${firstErr}) — see console for details` : ""));
   } catch (e) {
     showToast("ESPN $ auto-fill failed: " + e.message);
   } finally {
