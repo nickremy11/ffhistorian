@@ -2254,8 +2254,10 @@ function stSetMode(mode) { ST.mode = mode; stRender(); }
 let stActivePos = "ALL"; // ALL | QB | RB | WR | TE
 function stSetPos(pos) { stActivePos = pos; stRender(); }
 
-// Per-season rank-range spend for one position: $ spent on JUST that slice of
-// ranked draft prices (per POS_RANGE_TIERS), plus how many were kept that year.
+// Per-season rank-range spend for one position: average $ per player drafted in
+// JUST that slice of ranked draft prices (per POS_RANGE_TIERS), plus how many were
+// kept that year. Averaging (rather than summing) keeps ranges of different widths
+// (e.g. 1-6 vs 25-36) comparable to each other.
 function stComputePositionData(pos) {
   const seasons = [...new Set((dhPicks || []).map(p => p.season))].sort((a, b) => a - b);
   const ranges = POS_RANGE_TIERS[pos] || [];
@@ -2263,7 +2265,10 @@ function stComputePositionData(pos) {
     const rows = (dhPicks || []).filter(p => p.season === season && p.position === pos);
     const sorted = [...rows].sort((a, b) => b.price - a.price);
     const tierSpend = {};
-    ranges.forEach(range => { tierSpend[posRangeLabel(range)] = posRangeSum(sorted, range).sum; });
+    ranges.forEach(range => {
+      const { sum, count } = posRangeSum(sorted, range);
+      tierSpend[posRangeLabel(range)] = count ? sum / count : 0;
+    });
     return { season, tierSpend, keeperCount: rows.filter(p => p.is_keeper).length, drafted: rows.length };
   });
 }
@@ -2327,7 +2332,7 @@ function stRenderPositionTable(pos, data) {
   const ranges = POS_RANGE_TIERS[pos] || [];
   const th = `<th>Year</th>${ranges.map(r => `<th>${posRangeLabel(r)}</th>`).join("")}<th>Kept</th><th>Drafted</th>`;
   const rowsHtml = data.map(d => {
-    const cells = ranges.map(r => `<td>$${d.tierSpend[posRangeLabel(r)] || 0}</td>`).join("");
+    const cells = ranges.map(r => `<td>$${Math.round(d.tierSpend[posRangeLabel(r)] || 0)}</td>`).join("");
     return `<tr><td>${d.season}</td>${cells}<td>${d.keeperCount}</td><td>${d.drafted}</td></tr>`;
   }).join("");
   return `<div class="data-table-wrap"><table class="data-table"><thead><tr>${th}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
@@ -2444,7 +2449,7 @@ function stRender() {
   box.innerHTML = posTabs + `
     ${stRenderPositionChart(stActivePos, data)}
     ${stRenderPositionTable(stActivePos, data)}
-    <p class="table-footnote">$ spent on the top N ${stActivePos}s drafted that season, by tier. The number under each year is how many ${stActivePos}s were kept into that draft.</p>`;
+    <p class="table-footnote">Average $ spent per ${stActivePos} drafted that season, by tier. The number under each year is how many ${stActivePos}s were kept into that draft.</p>`;
 }
 
 // ═══════════════════════════════════════════════════
