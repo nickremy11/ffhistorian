@@ -295,6 +295,20 @@
     .recap-fact { font-family:'Crimson Text',serif; font-size:0.78rem; color:var(--parchment); opacity:0.8; }
     .recap-fact b { color:var(--gold-light); font-weight:600; opacity:1; }
     .recap-footnote { margin-top:14px; padding:10px 14px; background:rgba(0,0,0,0.22); border-left:3px solid var(--gold); font-family:'Playfair Display',serif; font-style:italic; font-size:0.85rem; color:var(--parchment); opacity:0.92; }
+    .recap-verdict { margin-top:14px; display:inline-flex; align-items:center; gap:8px; background:var(--gold); color:var(--brown-dark); font-family:'Rye',serif; font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; padding:7px 14px; border-radius:2px; }
+
+    /* ── STANDINGS PREDICTIONS ── */
+    .pred-wrap { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; box-shadow:5px 5px 0 var(--brown-mid); padding:6px 0; }
+    .pred-row { display:flex; align-items:baseline; gap:16px; padding:12px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+    .pred-row:last-child { border-bottom:none; }
+    .pred-row.playoff-line { border-bottom:2px dashed var(--gold); }
+    .pred-rank { font-family:'Rye',serif; font-size:1rem; color:var(--gold); width:26px; flex-shrink:0; }
+    .pred-team-col { display:flex; flex-direction:column; gap:2px; min-width:190px; flex-shrink:0; }
+    .pred-team-name { font-family:'Playfair Display',serif; font-weight:700; font-size:0.9rem; color:var(--cream); }
+    .pred-owner { font-family:'Crimson Text',serif; font-style:italic; font-size:0.72rem; color:var(--parchment); opacity:0.65; }
+    .pred-line { font-family:'Crimson Text',serif; font-size:0.86rem; color:var(--parchment); opacity:0.9; line-height:1.5; }
+    .pred-cutline { text-align:center; font-family:'Rye',serif; font-size:0.55rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold); padding:6px 0; background:rgba(201,150,42,0.08); }
+    @media (max-width:640px) { .pred-row { flex-wrap:wrap; } .pred-team-col { min-width:140px; } }
 
     /* ── UTILITY ── */
     .placeholder-state { text-align: center; padding: 60px 20px; border: 2px dashed var(--brown-mid); border-radius: 2px; }
@@ -381,7 +395,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">With only $106 left, still landed DeVonta Smith ($27), David Montgomery ($21), and Mike Evans ($13) — a lean, efficient build around two stars who were already discounted into the roster.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">Coming off the best record in the league and running it back with an unfair-value WR2, this is the team to beat again — and everyone knows it. The path back to the title runs through a healthy Bijan and a schedule where Smith-Njigba is basically playing on a rookie contract. If there's a soft spot, it's the $106 left to build four running backs and a defense around two stars — one injury to either keeper and the depth chart gets thin fast.</p>
+            <p class="recap-p">You won it all at 13-1 and then doubled down instead of getting cute about it — that's either supreme confidence or a mild personality flaw, and either way it's working. Smith-Njigba at $22 isn't a keeper, it's a cheat code, and Bijan is still Bijan. Short of an injury to one of your two stars, nobody in this league actually wants to see you on their schedule.</p>
+            <div class="recap-verdict">🏆 Championship or Bust</div>
           </div>
         </div>
 
@@ -398,7 +413,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">Backfield locked, so the rest of the $141 went straight to receivers: Nico Collins ($37), Malik Nabers ($36), Ladd McConkey ($27). Seven wide receivers on the roster — an embarrassment of WR1 depth behind a two-headed backfield.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">Worst-to-first-to-runner-up: last in 2023, champion in 2024, second in 2025 — the most consistent upward climb of any roster in the league, and now backed by a trade most owners wish they'd thought of first. A backfield this deep behind seven viable receivers means byes and injuries barely dent the lineup; the only thing standing between Warren Peace and a second ring is whoever's sitting in the Schnupper Deckers' chair.</p>
+            <p class="recap-p">You pulled off a trade that somehow made two rosters better at once, which shouldn't be legally possible, and then loaded up on receivers like the waiver wire was closing forever. Last in 2023, champion in 2024, runner-up in 2025 is not a normal arc — that's a redemption montage with a sequel in the works. If Walker and Brown both stay upright, this isn't just a playoff team, it's the team everyone else is building their whole season around beating.</p>
+            <div class="recap-verdict">🏆 Championship or Bust</div>
           </div>
         </div>
 
@@ -415,7 +431,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">With $175 in the bank, went hunting for stars: <strong>Ja'Marr Chase for $72</strong> — bought on the open market from Cullen, who'd just cut him loose at a $68 keeper cost, so Joe paid all of $4 more than Cullen would have to keep his own guy. Also added Travis Etienne Jr. ($38) and Colston Loveland ($23). Seven receivers, the heaviest WR corps in the league alongside Warren Peace.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">Three straight forgettable finishes (8th, 11th, 9th) make this the league's most reliably average team — and a $72 alpha receiver plus a shrewd, discount trade for a blue-chip rookie is a real swing at relevance. The receiver room, seven deep, can mask almost any bust; the question is whether Chase, McMillan, and Loveland all stay on the field at once long enough to matter in December, because this roster has broken hearts before.</p>
+            <p class="recap-p">Three straight years of finishing exactly where nobody notices, and then you go out and buy Ja'Marr Chase for $72 like that fixes everything. It might! Chase alone can drag a quiet roster into relevance. But three running backs total is the fantasy equivalent of packing one spare tire for a road trip — fine right up until something actually goes wrong.</p>
+            <div class="recap-verdict">🎢 Boom or Bust</div>
           </div>
         </div>
 
@@ -432,7 +449,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">Only $108 left after the keepers, and still bid Justin Jefferson up to $57. Gibbs, Rice, and Jefferson alone eat $149 of the $200 cap — a true three-star build with thirteen dart-throws behind it.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">On pure talent, Gibbs/Rice/Jefferson might be the best top-three in the league — three genuine difference-makers on one roster is rare even in a keeper format. The risk is just as obvious: with $149 of the cap tied up in three names, one injury turns a title contender into a scramble for waiver-wire replacement value, and there's little left over to fix it in-season.</p>
+            <p class="recap-p">You spent $149 of your $200 on three guys, which is either genius or a hostage situation depending on how October goes. Gibbs, Rice, and Jefferson might be the best top three in the league — but there's nothing behind door number four. One tweaked hamstring and you're starting a name you had to look up on your phone mid-game.</p>
+            <div class="recap-verdict">🎢 Boom or Bust</div>
           </div>
         </div>
 
@@ -447,7 +465,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">Doubled down after two straight last-place finishes, adding <strong>Kyren Williams for $42</strong> — not the top of a running back market that saw McCaffrey go for $63, Achane for $58, and Henry for $57, but a real bell-cow addition all the same — plus A.J. Brown ($35, cut loose by Remy) and Tee Higgins ($23). $83 combined on Hampton and Williams alone is a bet the backfield can carry this out of the cellar.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">A three-time champion that's finished dead last in back-to-back seasons is the strangest résumé in the league. The name is "Zero to Hero" — this is either the year it means something again, or the third straight punchline. A crowded backfield (six running backs) says the plan is volume and matchups over one bell-cow bet, which at least gives this roster more paths out of the cellar than last year's 3-11 record suggested.</p>
+            <p class="recap-p">Back-to-back last-place finishes, and you responded by spending $83 on two running backs and hoping nobody looks too closely at the rest of the roster. The name is right there — either this is the redemption chapter, or it's the third straight punchline with the same setup. Three rings says you remember how to win. The last two seasons say you've forgotten.</p>
+            <div class="recap-verdict">🪦 Prove It or Pack It In</div>
             <div class="recap-footnote">Hickey and Cullen are the league's only 3-ring owners, and both are coming off finishes in the bottom two. Nobody stays on top forever in this archive — and one of James's three didn't come easy, either: that 2022 crown is the same one split 50/50 with Cullen on the other card. Co equals No applies just as much on this side of the ledger.</div>
           </div>
         </div>
@@ -463,7 +482,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">With only $122 left, still bought <strong>CeeDee Lamb for $50</strong> — Joe's own keeper-options sheet had Lamb pegged at a $74 cost to keep, so getting him $24 under that on the open market is real value. Added Garrett Wilson ($25, cut loose by Bass for the exact same number) too — and, by design or accident, basically bought a Cowboys season-ticket package: Pickens, Lamb, Dak Prescott, and Jake Ferguson are all on this roster, four pieces of one NFL offense riding on a single fantasy team. Eight running backs round it out — the heaviest RB hoard in the league, a volume-over-flash approach at the position.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">A steady climb — 8th, then 5th — and now a Taylor/Pickens/Lamb/Wilson core with RB depth to survive an injury. The Cowboys stack is either a genius correlation play — start four guys who all score off the same scoring drive — or a disaster waiting on one bad Dallas offensive week. There isn't much in between, but quietly, this is one of the better-positioned rosters in the league.</p>
+            <p class="recap-p">Quietly, without anyone really talking about it, you built one of the more complete rosters in the league — and then went and started a Dallas Cowboys fan club with four guys on one offense. Taylor, Pickens, Lamb, and eight running backs deep is a floor most teams would kill for. This is the team nobody's scared of in August and everybody's scared of by November.</p>
+            <div class="recap-verdict">✅ Sneaky Playoff Team</div>
           </div>
         </div>
 
@@ -480,7 +500,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">Spent the Chase savings on Breece Hall ($40), Zay Flowers ($36), and Davante Adams ($20) — real star power layered on top of the Cook/Bowers discount.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">Fell from 3rd to 11th in a single season despite a talented roster, and now enters 2026 having let go of a receiver most of the league would kill to have at that price. Cook and Bowers give this team a cheap, productive floor, but the ceiling now depends on Hall and Flowers replacing a home-run threat who's playing for a rival this year — either addition-by-subtraction, or the decision Cullen is still explaining come October.</p>
+            <p class="recap-p">You fell from 3rd to 11th in one season and responded by cutting your best receiver loose — bold reset, or further self-sabotage, the jury's out. Cook and Bowers are legitimately great value, but you just handed a division rival Ja'Marr Chase for basically nothing and now have to watch him beat you with him. This team lives and dies with Breece Hall's health, which is a sentence that should worry you.</p>
+            <div class="recap-verdict">❓ Wild Card</div>
             <div class="recap-footnote">Cullen's 2022 ring still carries an asterisk in this site's own records — the archive quietly splits that title 50/50 with Hickey. By the transitive property, a "co-champion" is just a diplomatic way of saying not really a champion — Co equals No, as it were.</div>
           </div>
         </div>
@@ -498,7 +519,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">With $191 of freedom, went shopping for bell-cows: Derrick Henry ($57), Jeremiyah Love ($47), Emeka Egbuka ($28) — three premium buys and a five-running-back, ground-and-pound build.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">A slow climb (11th, 10th, 8th) meets real cap flexibility and legitimate bell-cow talent. Henry and Love give this roster two different paths to twenty touches a week, and Olave quietly graduates into a true WR1 role behind them — on paper, one of the more complete builds outside the top tier, if the record ever catches up to it.</p>
+            <p class="recap-p">Nobody's talking about this roster, which is honestly the best thing it has going for it. Derrick Henry and Jeremiyah Love give you two different ways to grind out a win, and Chris Olave at $9 is basically found money. Three straight years of quietly climbing the standings, and this might finally be the one where it stops being quiet.</p>
+            <div class="recap-verdict">😴 Sneaky Playoff Team</div>
           </div>
         </div>
 
@@ -515,7 +537,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">With $190 in the bank, made a real statement bid: <strong>Puka Nacua for $62</strong> — the third-priciest bid of the entire draft, behind only Ja'Marr Chase ($72, bought by Joe) and Christian McCaffrey ($63, bought by Austin). Also added Drake London ($44) and Josh Jacobs ($33).</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">A steady 5th–6th–2nd–6th tier team that just swung for the fences at receiver. Nacua and London give this roster two legitimate WR1s, and Jacobs adds a real bell-cow behind them — if the receivers stay on the field, this is a top-half offense; if not, $62 is an expensive lesson.</p>
+            <p class="recap-p">This roster is a beautiful disaster. Puka Nacua is an every-week ceiling and an every-week "is he actually playing" text thread. Drake London is the one grown-up in the room. Josh Jacobs has a great matchup and a worse injury history. You're one bad Sunday morning away from staring at your phone in silence, and one great one away from a laugher — there is no in-between with this team.</p>
+            <div class="recap-verdict">🎢 Beautiful Disaster</div>
           </div>
         </div>
 
@@ -532,7 +555,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">Still spent big: <strong>De'Von Achane for $58</strong> was the second-priciest non-keeper running back bought all draft, trailing only Christian McCaffrey's $63, plus Trey McBride ($33), D'Andre Swift ($30), and Josh Allen ($27, fresh off Schnupper's cut list).</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">A 10th-place finish undersells this roster — Achane, McBride, Swift, and Allen behind Odunze reads like a top-half team on paper. Achane's health has been the swing factor here for two years running; get a full season out of him and this is a playoff team, no asterisk required.</p>
+            <p class="recap-p">On paper, Achane, McBride, Swift, and Allen behind Rome Odunze is a top-half roster. In practice, De'Von Achane has spent two years teaching this owner about patience through injury reports. If he plays sixteen games, this is a real playoff team. If he doesn't, it's a very talented group of guys standing around.</p>
+            <div class="recap-verdict">🤞 Bounce-Back or Bust</div>
           </div>
         </div>
 
@@ -547,7 +571,8 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">Turned around and <strong>bought most of them right back</strong>: Amon-Ra St. Brown for $61 (just $7 under his old $68 keeper price), Saquon Barkley for $56 (a real $9 discount off his $65 keeper number). Then got aggressive on Javonte Williams at $45 — a huge jump from the $8 keeper cost that was on file for him, a real bet that last year's breakout was the floor and not the ceiling.</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">Coming off a 3rd-place finish with nearly the same core rebuilt at a small discount, the real swing factor is Javonte Williams — pay RB1 money and get RB1 production, or spend the year explaining why the laundry didn't come out any cleaner. Zajdel's title résumé, one ring at 6-8, says this owner can win with less than the eye test suggests.</p>
+            <p class="recap-p">Kept nobody, bought most of the same guys back anyway, and then made a wild bet on Javonte Williams being a real thing and not a six-week mirage. Coming off a 3rd-place finish with essentially the same core minus a keeper discount, this team should be fine — whether it's fine enough depends entirely on whether Javonte Williams remembers he's supposed to be good.</p>
+            <div class="recap-verdict">🎯 Contender If It Clicks</div>
             <div class="recap-footnote">The team name has quietly run a three-year rap-feud bit — "Drake Type Beat" (2023) → "Drake vs Hendrick Lamar Mixtape" (2024) → this year's laundry pun. The 2023 title, notably, came at 6–8 — the shakiest ring in league history.</div>
           </div>
         </div>
@@ -563,10 +588,29 @@
             <span class="recap-label">Draft Day</span>
             <p class="recap-p">Took all $200 to the open market and mostly bought his own stuff back: Christian McCaffrey for $63 (from Bass, who'd just cut him) and <strong>Ashton Jeanty for $55</strong> — $3 less than his own keeper price would've been. Also added Carnell Tate ($14).</p>
             <span class="recap-label">Outlook</span>
-            <p class="recap-p">The only owner in Elite FFL history with zero championships enters 2026 with zero keepers too — either the reset that finally breaks through, or more proof a fresh start alone doesn't fix a roster. McCaffrey and Jeanty give this team a real 1-2 punch if either stays healthy, which has been the exact problem for both of their careers. At least the record's trending the right way: 10th, then 9th, then 7th — thirteen seasons in, the breakthrough might finally be close.</p>
+            <p class="recap-p">Zero championships in league history, zero keepers this year — you looked at the problem and decided the answer was starting completely over, twice, in the same offseason. McCaffrey and Jeanty is a legitimately great one-two punch if either of them can stay on a football field, which, historically, has been a coin flip for both. Either this is the year it finally clicks, or it's the fourteenth straight season of almost.</p>
+            <div class="recap-verdict">🎰 High Risk, Still Searching</div>
           </div>
         </div>
 
+      </div>
+
+      <div class="section-head" style="margin-top:40px;"><h2>Way-Too-Early Standings Predictions</h2><div class="section-head-line"></div></div>
+      <div class="recap-intro">Nobody's played a snap yet, so treat this exactly as seriously as it deserves. Top six make the playoffs — the rest of you are just here for the group chat content.</div>
+      <div class="pred-wrap">
+        <div class="pred-row"><span class="pred-rank">1</span><div class="pred-team-col"><span class="pred-team-name">Schnupper Deckers</span><span class="pred-owner">Schnupper</span></div><span class="pred-line">Bijan's healthy, JSN's a bargain, and nobody's proven they can slow this down. Champs again.</span></div>
+        <div class="pred-row"><span class="pred-rank">2</span><div class="pred-team-col"><span class="pred-team-name">Warren Peace</span><span class="pred-owner">Remy</span></div><span class="pred-line">The trade of the offseason plus a deep receiver room. Losing finals is starting to feel personal.</span></div>
+        <div class="pred-row"><span class="pred-rank">3</span><div class="pred-team-col"><span class="pred-team-name">Team DaVaughnte</span><span class="pred-owner">Nathan</span></div><span class="pred-line">Nobody circles this team on the schedule, and that's exactly the problem for everyone else.</span></div>
+        <div class="pred-row"><span class="pred-rank">4</span><div class="pred-team-col"><span class="pred-team-name">The Greensboro Mighty Hammers</span><span class="pred-owner">Colin</span></div><span class="pred-line">Two bell-cows and a $9 keeper. The quiet build finally gets loud.</span></div>
+        <div class="pred-row"><span class="pred-rank">5</span><div class="pred-team-col"><span class="pred-team-name">Mondre and D'Andre's Laundry</span><span class="pred-owner">Zajdel</span></div><span class="pred-line">Same talent, smaller bill, one big bet on Javonte Williams cashing.</span></div>
+        <div class="pred-row playoff-line"><span class="pred-rank">6</span><div class="pred-team-col"><span class="pred-team-name">Joe Der-tey</span><span class="pred-owner">Joe</span></div><span class="pred-line">Chase carries this team into the playoffs on his back, barely, and everyone's a little annoyed about it.</span></div>
+        <div class="pred-cutline">— playoff cut line —</div>
+        <div class="pred-row"><span class="pred-rank">7</span><div class="pred-team-col"><span class="pred-team-name">Some Thomas's r Worth Keeping</span><span class="pred-owner">Brooks</span></div><span class="pred-line">A great roster on paper and a Week 9 MRI away from a lost season.</span></div>
+        <div class="pred-row"><span class="pred-rank">8</span><div class="pred-team-col"><span class="pred-team-name">Clemson Quailmen</span><span class="pred-owner">Jeremy</span></div><span class="pred-line">Three studs, zero depth, and a whole lot of praying nobody gets hurt.</span></div>
+        <div class="pred-row"><span class="pred-rank">9</span><div class="pred-team-col"><span class="pred-team-name">Fair Trade Coffee Black</span><span class="pred-owner">Bass</span></div><span class="pred-line">Puka goes off twice, disappears for a month, repeat. Feast or famine, mostly famine.</span></div>
+        <div class="pred-row"><span class="pred-rank">10</span><div class="pred-team-col"><span class="pred-team-name">Cray's Craziest Team</span><span class="pred-owner">Cullen</span></div><span class="pred-line">Gave away the alpha receiver and now has to out-scheme everybody instead. Tough sell.</span></div>
+        <div class="pred-row"><span class="pred-rank">11</span><div class="pred-team-col"><span class="pred-team-name">1738 68iou1</span><span class="pred-owner">Austin</span></div><span class="pred-line">McCaffrey and Jeanty are great when healthy, which is the whole problem.</span></div>
+        <div class="pred-row"><span class="pred-rank">12</span><div class="pred-team-col"><span class="pred-team-name">Zero to Hero</span><span class="pred-owner">Hickey</span></div><span class="pred-line">Third straight last-place finish. At some point it's not bad luck, it's a pattern.</span></div>
       </div>
     </section>
 
