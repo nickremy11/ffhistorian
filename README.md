@@ -75,6 +75,19 @@ git push origin main
 
 ---
 
+## Eastbound FFL League IDs
+
+Redraft league (`/eastbound`). Draft IDs are set per season so pre/in-draft
+pick trades resolve to the drafted player in the Trade History tab.
+
+| Season | League ID | Draft ID |
+|---|---|---|
+| 2024 | 1115108446031994880 | 1115108446912880640 |
+| 2025 | 1257452259906695168 | 1257452259906695169 |
+| 2026 | 1387115849936035840 | 1387115849948606464 (pre-draft) |
+
+---
+
 ## NCFL League IDs
 
 | Season | Sleeper ID |
