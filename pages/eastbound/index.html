@@ -746,7 +746,9 @@ async function fetchAllSeasons() {
       );
 
       users.forEach(u => {
-        const rawName = u.metadata?.team_name || u.display_name || u.user_id;
+        // Redraft league: team names change every season, so key display off the
+        // stable Sleeper username (display_name) and fall back to team name.
+        const rawName = u.display_name || u.metadata?.team_name || u.user_id;
         const cuid = canonicalUserId(u.user_id);
         // Always store under the canonical user_id so legacy owners merge in
         if (!usersSeen[cuid]) {
