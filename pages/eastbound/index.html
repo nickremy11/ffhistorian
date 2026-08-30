@@ -933,18 +933,23 @@ function renderStandings(year, sortCol, sortDir) {
         }
       }
 
-      // Playoff appearances — any roster that appears in the winners bracket
-      const playoffRosterIds = new Set();
-      sd.bracketData.forEach(m => {
-        if (m.t1) playoffRosterIds.add(m.t1);
-        if (m.t2) playoffRosterIds.add(m.t2);
-        if (m.w)  playoffRosterIds.add(m.w);
-        if (m.l)  playoffRosterIds.add(m.l);
-      });
-      playoffRosterIds.forEach(rid => {
-        const pUid = canonicalUserId(sd.rosterUserMap[rid]);
-        if (pUid && records[pUid]) records[pUid].playoffApps += 1;
-      });
+      // Playoff appearances — any roster that appears in the winners bracket,
+      // but only once the bracket has actually been played. Sleeper pre-seeds
+      // future brackets (t1/t2 set, w/l null) — those must not count.
+      const bracketPlayed = sd.bracketData.some(m => m.w);
+      if (bracketPlayed) {
+        const playoffRosterIds = new Set();
+        sd.bracketData.forEach(m => {
+          if (m.t1) playoffRosterIds.add(m.t1);
+          if (m.t2) playoffRosterIds.add(m.t2);
+          if (m.w)  playoffRosterIds.add(m.w);
+          if (m.l)  playoffRosterIds.add(m.l);
+        });
+        playoffRosterIds.forEach(rid => {
+          const pUid = canonicalUserId(sd.rosterUserMap[rid]);
+          if (pUid && records[pUid]) records[pUid].playoffApps += 1;
+        });
+      }
     }
 
     const thirdUid = yearThird[yr];
