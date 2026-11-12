@@ -272,8 +272,6 @@
     .kept-badge.k2 { background:var(--gold); color:var(--brown-dark); }
     .kept-badge.k3 { background:var(--red); color:var(--cream); }
     .keeper-empty { padding:12px; color:var(--parchment); opacity:0.5; font-style:italic; font-size:0.8rem; text-align:center; }
-    .keeper-add-row { padding:12px 14px; }
-    .keeper-add-row input, .keeper-add-row select { width:100%; margin-bottom:6px; background:var(--cream); border:2px solid var(--brown-mid); color:var(--ink); font-family:'Crimson Text',serif; font-size:0.82rem; padding:5px 8px; border-radius:2px; box-sizing:border-box; }
     .keeper-legend { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; font-size:0.78rem; color:var(--brown-light); align-items:center; }
     .keeper-legend span { display:inline-flex; align-items:center; gap:6px; }
 
@@ -2234,7 +2232,6 @@ function koRender() {
     return `<div class="keeper-col">
       <div class="keeper-col-head"><span>${esc(owner)}</span><small>${players.length} eligible</small></div>
       ${rowsHtml}
-      ${isAdmin() ? koAddRowHtml(owner) : ""}
     </div>`;
   }).join("");
   // ESPN $ only exists once ESPN prices next year's players (Auto-fill ESPN $); until then the column is noise.
@@ -2260,53 +2257,6 @@ function koPlayerRow(o, posBreak) {
     <span class="ko-cost">${o.keeper_cost != null ? "$" + o.keeper_cost : "—"}</span>
     ${isAdmin() ? `<span class="ko-admin"><a onclick="koOpenEdit(${o.id})">Edit</a><a onclick="koDelete(${o.id})">✕</a></span>` : ""}
   </div>`;
-}
-
-function koAddRowHtml(owner) {
-  const safeId = owner.replace(/[^a-z0-9]/gi, "");
-  const names  = [...new Set((dhPicks || []).filter(p => p.owner === owner).map(p => p.player_name))].sort();
-  return `<div class="keeper-add-row">
-    <input type="text" list="ko-players-${safeId}" placeholder="Add player…" id="ko-new-name-${safeId}" onchange="koSuggestFromPick('${esc(owner)}')"/>
-    <datalist id="ko-players-${safeId}">${names.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
-    <select id="ko-new-pos-${safeId}">${DRAFT_POSITIONS.map(p => `<option value="${p}">${p}</option>`).join("")}</select>
-    <button class="btn small" style="width:100%;" onclick="koAddPlayer('${esc(owner)}')">+ Add</button>
-  </div>`;
-}
-
-function koSuggestFromPick(owner) {
-  const safeId    = owner.replace(/[^a-z0-9]/gi, "");
-  const nameInput = document.getElementById(`ko-new-name-${safeId}`);
-  const posSelect = document.getElementById(`ko-new-pos-${safeId}`);
-  const sugg = koDeriveSuggestion(owner, nameInput.value.trim());
-  if (sugg.position) posSelect.value = sugg.position;
-}
-
-async function koAddPlayer(owner) {
-  const safeId    = owner.replace(/[^a-z0-9]/gi, "");
-  const nameInput = document.getElementById(`ko-new-name-${safeId}`);
-  const posSelect = document.getElementById(`ko-new-pos-${safeId}`);
-  const name = nameInput.value.trim();
-  if (!name) return;
-  const sugg = koDeriveSuggestion(owner, name);
-  const body = {
-    owner, player_name: name,
-    position:       sugg.position || posSelect.value,
-    times_kept:     sugg.timesKept,
-    original_price: sugg.originalPrice,
-    keeper_cost:    sugg.originalPrice != null ? keeperCumulativeCost(sugg.originalPrice, sugg.timesKept) : null,
-    ppg:            sugg.ppg,
-  };
-  try {
-    const res = await fetch(`${ELITEFFL_API}/keeper-options`, {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    nameInput.value = "";
-    await loadKeeperOptions(true);
-    koRender();
-  } catch (e) { showToast("Couldn't add player: " + e.message); }
 }
 
 // ── Keeper Options — bulk import (admin only) ───────────────────────────────
