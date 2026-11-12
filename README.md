@@ -97,3 +97,23 @@ pick trades resolve to the drafted player in the Trade History tab.
 | 2024 | 1050188337924902912 |
 | 2025 | 1180232430068178944 |
 | 2026 | 1312218053051678720 (no data yet) |
+
+---
+
+## Elite FFL (ESPN) — live current season
+
+Past seasons are served from the R2 archive (`espn/eliteffl/{year}.json`, written by
+`scripts/migrate_espn_to_r2.py`). The **current** season (Sep–Jul, derived from the date)
+is fetched live from ESPN by the worker, cached 1h in KV, and snapshotted to R2. Trade
+History comes from `/api/espn/eliteffl/trades/{year}` (2018+; past seasons are built once
+and kept in R2 as `trades-{year}.json`).
+
+The league is private, so the worker needs a member's cookies (refresh when they expire):
+
+```bash
+cd worker
+npx wrangler secret put ESPN_S2
+npx wrangler secret put ESPN_SWID   # include the braces: {XXXXXXXX-...}
+```
+
+Without them the page falls back to the last R2 snapshot.

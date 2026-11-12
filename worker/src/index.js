@@ -14,14 +14,21 @@ const SLEEPER_BASE = "https://api.sleeper.app/v1";
 // Cache TTL in seconds
 const TTL_ACTIVE_SEASON = 60 * 60;        // 1 hour  (in-season)
 const TTL_OFFSEASON     = 60 * 60 * 24;   // 24 hours (off-season)
-const ACTIVE_SEASON_YEAR = 2025;          // Update each year
 
-function getTTL(leagueId) {
-  // 2026 league is future/empty — cache aggressively
-  if (leagueId === "1312218053051678720") return TTL_OFFSEASON;
-  return ACTIVE_SEASON_YEAR === new Date().getFullYear()
-    ? TTL_ACTIVE_SEASON
-    : TTL_OFFSEASON;
+// NFL fantasy season in progress: September through January (playoffs end early Jan).
+// Derived from the date so nothing needs bumping each year.
+function isInSeason(d = new Date()) {
+  const m = d.getUTCMonth(); // 0 = Jan
+  return m >= 8 || m === 0;
+}
+
+// The NFL season year: Jan–Jul belong to the previous season.
+function currentSeason(d = new Date()) {
+  return d.getUTCMonth() < 7 ? d.getUTCFullYear() - 1 : d.getUTCFullYear();
+}
+
+function getTTL() {
+  return isInSeason() ? TTL_ACTIVE_SEASON : TTL_OFFSEASON;
 }
 
 // ── TRADE MARKET (FantasyCalc "then vs now") ─────────────────────────────────
@@ -139,6 +146,162 @@ async function fetchWithCache(env, cacheKey, url, ttl) {
   });
 }
 
+// ── ESPN (live current season) ───────────────────────────────────────────────
+// Private leagues need the league member's cookies:
+//   wrangler secret put ESPN_S2
+//   wrangler secret put ESPN_SWID
+// Past seasons are served from the R2 archive (scripts/migrate_espn_to_r2.py).
+const ESPN_LEAGUES = {
+  eliteffl: { id: 330437, tradesFrom: 2018 }, // transactions aren't kept for leagueHistory years
+};
+const ESPN_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
+const ESPN_POS  = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST" };
+
+function espnJson(obj, status = 200, maxAge = 0) {
+  const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
+  if (maxAge) headers["Cache-Control"] = `public, max-age=${maxAge}`;
+  return new Response(typeof obj === "string" ? obj : JSON.stringify(obj), { status, headers });
+}
+
+async function espnFetch(env, url) {
+  if (!env.ESPN_S2 || !env.ESPN_SWID) throw new Error("ESPN cookies not configured");
+  const res = await fetch(url, {
+    headers: {
+      Cookie: `espn_s2=${env.ESPN_S2}; SWID=${env.ESPN_SWID}`,
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0",
+    },
+  });
+  if (!res.ok) throw new Error(`ESPN ${res.status}`);
+  return res.json();
+}
+
+// Same shape the R2 archive stores, so the page reads live and archived seasons alike.
+async function getEspnLiveSeason(env, key, league, season) {
+  const kvKey = `espn:${key}:${season}`;
+  const cached = await env.FF_CACHE.get(kvKey);
+  if (cached) { try { return JSON.parse(cached); } catch { /* refetch */ } }
+  try {
+    const d = await espnFetch(env,
+      `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}?view=mTeam&view=mMatchupScore&view=mStatus`);
+    if (!Array.isArray(d.teams) || !d.teams.length) return null;
+    const data = {
+      seasonId: season,
+      members:  d.members  || [],
+      teams:    d.teams,
+      schedule: d.schedule || [],
+      status:   d.status   || {},
+    };
+    const body = JSON.stringify(data);
+    await env.FF_CACHE.put(kvKey, body, { expirationTtl: getTTL() });
+    // Snapshot so the season survives expired cookies, and stays archived once it ends
+    await env.ESPN_DATA.put(`espn/${key}/${season}.json`, body, {
+      httpMetadata: { contentType: "application/json" },
+    }).catch(() => {});
+    return data;
+  } catch (e) {
+    console.warn(`ESPN live ${key} ${season}:`, e.message);
+    return null;
+  }
+}
+
+// Completed trades for one season → [{ id, season, week, date, teams:[teamId], items:[{playerId,
+// name, pos, from, to, type}] }]. type is "TRADE" or "DROP" (a roster-space drop made with it).
+// Past seasons are built once and kept in R2; the current season refreshes on the KV ttl.
+async function getEspnTrades(env, key, league, season) {
+  if (season < league.tradesFrom) return [];
+  const live  = season >= currentSeason();
+  const r2Key = `espn/${key}/trades-${season}.json`;
+  const kvKey = `espntrades:${key}:${season}`;
+
+  if (live) {
+    const cached = await env.FF_CACHE.get(kvKey);
+    if (cached) { try { return JSON.parse(cached); } catch { /* rebuild */ } }
+  } else {
+    const obj = await env.ESPN_DATA.get(r2Key);
+    if (obj) { try { return JSON.parse(await obj.text()); } catch { /* rebuild */ } }
+  }
+
+  let trades;
+  try {
+    trades = await buildEspnTrades(env, league, season);
+  } catch (e) {
+    // No cookies / ESPN down — serve the last snapshot rather than nothing
+    const obj = await env.ESPN_DATA.get(r2Key);
+    if (obj) { try { return JSON.parse(await obj.text()); } catch {} }
+    throw e;
+  }
+  const body = JSON.stringify(trades);
+  if (live) await env.FF_CACHE.put(kvKey, body, { expirationTtl: getTTL() });
+  await env.ESPN_DATA.put(r2Key, body, { httpMetadata: { contentType: "application/json" } }).catch(() => {});
+  return trades;
+}
+
+async function buildEspnTrades(env, league, season) {
+  // mTransactions2 only returns the scoring period asked for, so walk them all.
+  // Period 0 is the preseason (draft-day / offseason trades).
+  const base = `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}?view=mTransactions2&scoringPeriodId=`;
+  const periods = await Promise.all(Array.from({ length: 19 }, (_, p) =>
+    espnFetch(env, base + p).then(d => d.transactions || []).catch(e => {
+      if (p === 0) throw e; // first call failing = auth problem, surface it
+      return [];
+    })
+  ));
+  const byId = new Map();
+  periods.flat().forEach(tx => byId.set(tx.id, tx));
+  const txs = [...byId.values()];
+
+  // A trade is a chain sharing relatedTransactionId (PROPOSAL → ACCEPT → UPHOLD | VETO).
+  const vetoed = new Set(txs.filter(t => t.type === "TRADE_VETO").map(t => t.relatedTransactionId));
+  const upheld = new Set(txs.filter(t => t.type === "TRADE_UPHOLD").map(t => t.relatedTransactionId));
+  const proposals = new Map(txs.filter(t => t.type === "TRADE_PROPOSAL").map(t => [t.id, t]));
+
+  const out = new Map(); // relatedTransactionId → trade
+  for (const t of txs) {
+    if (t.type !== "TRADE_ACCEPT" || t.status !== "EXECUTED" || !(t.items || []).length) continue;
+    const rel = t.relatedTransactionId || t.id;
+    if (vetoed.has(rel)) continue;
+    out.set(rel, t);
+  }
+  // Upheld trades whose executed ACCEPT ESPN didn't return — fall back to the proposal's items
+  for (const rel of upheld) {
+    if (out.has(rel) || vetoed.has(rel)) continue;
+    const p = proposals.get(rel);
+    if (p && (p.items || []).length) out.set(rel, p);
+  }
+
+  const trades = [...out.entries()].map(([rel, t]) => {
+    const items = (t.items || [])
+      .filter(i => i.type === "TRADE" || i.type === "DROP")
+      .map(i => ({ playerId: i.playerId, from: i.fromTeamId, to: i.toTeamId, type: i.type }));
+    const teams = [...new Set(items.filter(i => i.type === "TRADE").flatMap(i => [i.from, i.to]))];
+    return {
+      id: rel, season,
+      week: t.scoringPeriodId || 0,
+      date: t.processDate || t.acceptedDate || t.proposedDate || null,
+      teams, items,
+    };
+  }).filter(t => t.teams.length >= 2);
+
+  // Names — the public players endpoint, no cookies needed
+  const ids = [...new Set(trades.flatMap(t => t.items.map(i => i.playerId)))];
+  if (ids.length) {
+    try {
+      const res = await fetch(`${ESPN_BASE}/seasons/${season}/players?view=players_wl`, {
+        headers: { "X-Fantasy-Filter": JSON.stringify({ filterIds: { value: ids } }), Accept: "application/json" },
+      });
+      const players = res.ok ? await res.json() : [];
+      const byPid = new Map(players.map(p => [p.id, p]));
+      trades.forEach(t => t.items.forEach(i => {
+        const p = byPid.get(i.playerId);
+        i.name = p?.fullName || `Player #${i.playerId}`;
+        i.pos  = ESPN_POS[p?.defaultPositionId] || "";
+      }));
+    } catch { /* names optional */ }
+  }
+  return trades.sort((a, b) => (a.date || 0) - (b.date || 0));
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -160,33 +323,37 @@ export default {
       return new Response("Not found", { status: 404 });
     }
 
-    // ── ESPN R2 ROUTES ────────────────────────────────────
-    // /api/espn/:leagueKey/:season  → serves season JSON from R2
-    // /api/espn/:leagueKey/trades   → serves trades JSON from R2
+    // ── ESPN ROUTES ───────────────────────────────────────
+    // /api/espn/:leagueKey/:season         → season JSON. Past seasons: R2 archive.
+    //                                         Current season: live from ESPN (KV, ttl),
+    //                                         snapshotted to R2 as a fallback.
+    // /api/espn/:leagueKey/trades/:season  → completed trades for that season
+    // /api/espn/:leagueKey/:other          → any other R2 file (legacy)
     if (path.startsWith("/api/espn/")) {
       const espnSegments = path.replace("/api/espn/", "").split("/");
       const leagueKey   = espnSegments[0]; // e.g. "eliteffl"
       const seasonOrKey = espnSegments[1]; // e.g. "2025" or "trades"
 
-      if (!leagueKey || !seasonOrKey) {
-        return new Response(JSON.stringify({ error: "Invalid ESPN route" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        });
-      }
-
-      const r2Key = `espn/${leagueKey}/${seasonOrKey}.json`;
+      if (!leagueKey || !seasonOrKey) return espnJson({ error: "Invalid ESPN route" }, 400);
 
       try {
-        const obj = await env.ESPN_DATA.get(r2Key);
-        if (!obj) {
-          return new Response(JSON.stringify({ error: "Not found", key: r2Key }), {
-            status: 404,
-            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-          });
+        const league = ESPN_LEAGUES[leagueKey];
+
+        if (league && seasonOrKey === "trades" && /^\d{4}$/.test(espnSegments[2] || "")) {
+          return espnJson(await getEspnTrades(env, leagueKey, league, Number(espnSegments[2])),
+            200, Number(espnSegments[2]) >= currentSeason() ? 300 : 3600);
         }
-        const body = await obj.text();
-        return new Response(body, {
+
+        if (league && /^\d{4}$/.test(seasonOrKey) && Number(seasonOrKey) >= currentSeason()) {
+          const data = await getEspnLiveSeason(env, leagueKey, league, Number(seasonOrKey));
+          if (data) return espnJson(data, 200, 300);
+          // live fetch failed (no cookies / expired / pre-season) — fall through to R2
+        }
+
+        const r2Key = `espn/${leagueKey}/${seasonOrKey}.json`;
+        const obj = await env.ESPN_DATA.get(r2Key);
+        if (!obj) return espnJson({ error: "Not found", key: r2Key }, 404);
+        return new Response(await obj.text(), {
           headers: {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
@@ -194,10 +361,7 @@ export default {
           },
         });
       } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), {
-          status: 500,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        });
+        return espnJson({ error: e.message }, 500);
       }
     }
 
@@ -225,7 +389,7 @@ export default {
       });
     }
 
-    const ttl = getTTL(leagueId);
+    const ttl = getTTL();
 
     // ── ROSTERS ──────────────────────────────────────────
     if (resource === "rosters") {
@@ -307,7 +471,7 @@ export default {
         env,
         `info:${leagueId}`,
         `${SLEEPER_BASE}/league/${leagueId}`,
-        TTL_OFFSEASON
+        ttl  // carries last_scored_leg — must refresh as often as matchups
       );
     }
 

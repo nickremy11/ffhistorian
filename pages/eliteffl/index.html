@@ -137,6 +137,21 @@
     .records-val { font-family: 'Playfair Display', serif; font-weight: 700; color: var(--brown-dark); white-space: nowrap; }
 
     /* ── TRADES PLACEHOLDER ── */
+    .trade-timeline { display: flex; flex-direction: column; }
+    .trade-item { display: flex; gap: 0; position: relative; }
+    .trade-timeline-line { width: 32px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+    .trade-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--gold); border: 2px solid var(--brown-dark); flex-shrink: 0; margin-top: 18px; z-index: 1; }
+    .trade-line-seg { flex: 1; width: 2px; background: var(--brown-mid); margin: 0 auto; }
+    .trade-card { flex: 1; min-width: 0; background: var(--brown-dark); border: 1px solid var(--brown-mid); margin: 8px 0 8px 8px; padding: 16px 20px; }
+    .trade-date { font-family: 'Rye', serif; font-size: 0.6rem; letter-spacing: 0.2em; color: var(--gold); margin-bottom: 10px; }
+    .trade-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+    .trade-side { flex: 1; min-width: 160px; }
+    .trade-side-label { font-family: 'Rye', serif; font-size: 0.55rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 6px; padding: 2px 6px; display: inline-block; background: var(--green); color: var(--cream); }
+    .trade-assets { list-style: none; }
+    .trade-assets li { font-family: 'Crimson Text', serif; font-size: 0.95rem; color: var(--parchment); padding: 2px 0; border-bottom: 1px dashed rgba(255,255,255,0.08); }
+    .trade-assets li.drop { opacity: 0.6; font-style: italic; }
+    .trade-arrow { align-self: center; font-size: 1.4rem; color: var(--gold); opacity: 0.7; }
+    .trade-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
     .trades-placeholder { background: var(--brown-dark); border: 2px solid var(--brown-mid); border-radius: 2px; padding: 60px 40px; text-align: center; box-shadow: 4px 4px 0 var(--brown-mid); }
     .trades-placeholder .icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
     .trades-placeholder h3 { font-family: 'Rye', serif; font-size: 1rem; color: var(--gold-light); margin-bottom: 12px; letter-spacing: 0.1em; }
@@ -340,7 +355,7 @@
       <div class="banner-text">
         <h1>Elite <span>FFL</span></h1>
         <p class="banner-sub">The Official Record &amp; Archive</p>
-        <p class="banner-seasons">2013 · 2014 · 2015 · 2016 · 2017 · 2018 · 2019 · 2020 · 2021 · 2022 · 2023 · 2024 · 2025</p>
+        <p class="banner-seasons" id="bannerSeasons"></p>
         <div class="banner-divider"></div>
       </div>
       <div id="auth-chip" style="flex-shrink:0;"></div>
@@ -684,11 +699,8 @@
     <!-- TRADE HISTORY -->
     <section class="panel" id="panel-trades">
       <div class="section-head"><h2>Trade History</h2><div class="section-head-line"></div></div>
-      <div class="trades-placeholder">
-        <div class="icon">🔄</div>
-        <h3>Coming Soon</h3>
-        <p>Trade history for Elite FFL is being compiled from the archives and will appear here in a future update.</p>
-      </div>
+      <div class="trade-filters" id="tradeYearPills"></div>
+      <div id="tradesContent"><div class="loading">Loading trades…</div></div>
     </section>
 
     <!-- LEAGUE RECORDS -->
@@ -714,7 +726,12 @@
 // CONFIG
 // ═══════════════════════════════════════════════════
 const LEAGUE_KEY = "eliteffl";
-const SEASONS    = [2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
+// The NFL season year: Jan–Jul still belong to the previous season. The current
+// season is served live from ESPN by the worker (hourly cache), every earlier one
+// from the R2 archive — so a new season appears on its own each September.
+const CURRENT_SEASON = (() => { const d = new Date(); return d.getMonth() < 7 ? d.getFullYear() - 1 : d.getFullYear(); })();
+const SEASONS = Array.from({ length: CURRENT_SEASON - 2013 + 1 }, (_, i) => 2013 + i);
+const TRADES_FROM = 2018; // ESPN keeps no transactions for the leagueHistory years
 
 // ESPN member ID → nickname
 // Patriotsfan22 merges into Patriots2427 (same person, two accounts)
@@ -851,6 +868,8 @@ function refreshAdminUI() {
 
 function buildYearPills() {
   const wrap = document.getElementById("standingsYearPills");
+  const banner = document.getElementById("bannerSeasons");
+  if (banner) banner.textContent = SEASONS.join(" · ");
   SEASONS.forEach(yr => {
     const btn = document.createElement("button");
     btn.className = "year-pill";
@@ -867,6 +886,13 @@ async function fetchAllSeasons() {
       const res  = await fetch(`/api/espn/${LEAGUE_KEY}/${yr}`);
       if (!res.ok) return;
       const data = await res.json();
+      if (!Array.isArray(data.teams) || !data.teams.length) return; // season not set up yet
+      // In-progress season: a regular-season game still UNDECIDED is unplayed or live —
+      // keep it out of records / all-play / PF. Playoff appearances and division titles
+      // wait until every regular-season game is decided (ESPN seeds teams mid-season).
+      const sched = data.schedule || [];
+      data.regSeasonDone = !sched.some(m => isRegularSeason(m) && m.winner === "UNDECIDED");
+      data.schedule = sched.filter(m => !(isRegularSeason(m) && m.winner === "UNDECIDED"));
       allSeasonData[yr] = data;
       // Collect canonical owner IDs
       (data.members || []).forEach(m => {
@@ -891,6 +917,7 @@ function switchTab(tab, btn) {
   document.getElementById("panel-" + tab).classList.add("active");
   btn.classList.add("active");
   if (tab === "records" && !recordsLoaded) { loadRecords(); recordsLoaded = true; }
+  if (tab === "trades") initTradesTab();
   if (tab === "draftHistory")  initDraftHistoryTab();
   if (tab === "keeperOptions") initKeeperOptionsTab();
   if (tab === "keeperHistory") initKeeperHistoryTab();
@@ -1009,7 +1036,7 @@ function getOwnerRecord(years) {
       ensure(uid);
       if (!records[uid].seasonAwards[yr]) records[uid].seasonAwards[yr] = [];
 
-      if (t.playoffSeed && t.playoffSeed <= 6) {
+      if (sd.regSeasonDone && t.playoffSeed && t.playoffSeed <= 6) {
         playoffTeams.add(uid);
         records[uid].playoffs++;
       }
@@ -1038,7 +1065,7 @@ function getOwnerRecord(years) {
         if (!divGroups[div]) divGroups[div] = [];
         divGroups[div].push(t);
         });
-    Object.values(divGroups).forEach(group => {
+    if (sd.regSeasonDone) Object.values(divGroups).forEach(group => {
         if (!group.length) return;
             const winner = group.reduce((best, t) => {
             const bW  = best.record?.overall?.wins     || 0;
@@ -1404,12 +1431,12 @@ function loadRecords() {
     streakData[uid] = { name:nickname(uid), maxWin:mW, maxLoss:mL, maxWinCtx:mWCtx, maxLossCtx:mLCtx };
   });
 
-  const topWin  = Object.values(streakData).sort((a,b)=>b.maxWin-a.maxWin).slice(0,5);
-  const topLoss = Object.values(streakData).sort((a,b)=>b.maxLoss-a.maxLoss).slice(0,5);
+  const topWin  = Object.values(streakData).sort((a,b)=>b.maxWin-a.maxWin).slice(0,10);
+  const topLoss = Object.values(streakData).sort((a,b)=>b.maxLoss-a.maxLoss).slice(0,10);
   const topScores = [...allGames].sort((a,b)=>b.pts-a.pts).slice(0,10);
   const lowScores = [...allGames].filter(g=>g.pts>0).sort((a,b)=>a.pts-b.pts).slice(0,10);
-  const blowouts  = [...allGames].filter(g=>g.win).sort((a,b)=>(b.pts-b.oppPts)-(a.pts-a.oppPts)).slice(0,5);
-  const closest   = [...allGames].filter(g=>g.win).sort((a,b)=>(a.pts-a.oppPts)-(b.pts-b.oppPts)).slice(0,5);
+  const blowouts  = [...allGames].filter(g=>g.win).sort((a,b)=>(b.pts-b.oppPts)-(a.pts-a.oppPts)).slice(0,10);
+  const closest   = [...allGames].filter(g=>g.win).sort((a,b)=>(a.pts-a.oppPts)-(b.pts-b.oppPts)).slice(0,10);
 
   // Scoring seasons
   const seasonPF = {};
@@ -1434,7 +1461,7 @@ function loadRecords() {
       if (pf > 0) seasonPF[`${uid}:${yr}`] = { name:nickname(uid), yr, totalPF:pf };
     });
   });
-  const topSeasons = Object.values(seasonPF).sort((a,b)=>b.totalPF-a.totalPF).slice(0,5);
+  const topSeasons = Object.values(seasonPF).sort((a,b)=>b.totalPF-a.totalPF).slice(0,10);
 
   function ri(i) { return i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`; }
 
@@ -1465,24 +1492,105 @@ function loadRecords() {
         </ul>
       </div>
       <div class="records-card">
-        <div class="records-card-head">💣 Top 5 Blowouts</div>
+        <div class="records-card-head">💣 Top 10 Blowouts</div>
         <ul class="records-list">${blowouts.map((g,i)=>`
           <li><span class="records-rank">${ri(i)}</span><span class="records-name">${g.name} def. ${g.opp}</span><span class="records-meta">${g.yr} Wk ${g.week} · ${g.pts.toFixed(2)}–${g.oppPts.toFixed(2)}</span><span class="records-val">+${(g.pts-g.oppPts).toFixed(2)}</span></li>`).join("")}
         </ul>
       </div>
       <div class="records-card">
-        <div class="records-card-head">🤏 Top 5 Closest Games</div>
+        <div class="records-card-head">🤏 Top 10 Closest Games</div>
         <ul class="records-list">${closest.map((g,i)=>`
           <li><span class="records-rank">${ri(i)}</span><span class="records-name">${g.name} def. ${g.opp}</span><span class="records-meta">${g.yr} Wk ${g.week} · ${g.pts.toFixed(2)}–${g.oppPts.toFixed(2)}</span><span class="records-val">${(g.pts-g.oppPts).toFixed(2)}</span></li>`).join("")}
         </ul>
       </div>
       <div class="records-card">
-        <div class="records-card-head">📈 Top 5 Scoring Seasons</div>
+        <div class="records-card-head">📈 Top 10 Scoring Seasons</div>
         <ul class="records-list">${topSeasons.map((s,i)=>`
           <li><span class="records-rank">${ri(i)}</span><span class="records-name">${s.name}</span><span class="records-meta">${s.yr} season</span><span class="records-val">${s.totalPF.toFixed(2)}</span></li>`).join("")}
         </ul>
       </div>
     </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// TRADE HISTORY — completed ESPN trades per season (worker: /api/espn/:key/trades/:season)
+// ═══════════════════════════════════════════════════
+let espnTrades = null;     // [{ id, season, week, date, teams, items:[{name,pos,from,to,type}] }]
+let tradesYear = "all";
+let tradesLoading = null;
+
+async function initTradesTab() {
+  if (!tradesLoading) {
+    tradesLoading = (async () => {
+      const years = SEASONS.filter(y => y >= TRADES_FROM);
+      const perYear = await Promise.all(years.map(yr =>
+        fetch(`/api/espn/${LEAGUE_KEY}/trades/${yr}`)
+          .then(r => (r.ok ? r.json() : []))
+          .catch(() => [])
+      ));
+      espnTrades = perYear.flat().filter(t => Array.isArray(t.items));
+    })();
+  }
+  await tradesLoading;
+  renderTrades();
+}
+
+function tradeOwnerName(season, teamId) {
+  const t = (allSeasonData[season]?.teams || []).find(tm => tm.id === teamId);
+  const raw = t && (t.primaryOwner || (t.owners && t.owners[0]));
+  if (raw) return nickname(raw);
+  return t?.name || (t ? `${t.location || ""} ${t.nickname || ""}`.trim() : "") || `Team ${teamId}`;
+}
+
+function setTradesYear(yr) { tradesYear = yr; renderTrades(); }
+
+function renderTrades() {
+  const pills = document.getElementById("tradeYearPills");
+  const out   = document.getElementById("tradesContent");
+  if (!espnTrades) return;
+
+  const yearsWith = [...new Set(espnTrades.map(t => t.season))].sort((a, b) => b - a);
+  pills.innerHTML = ["all", ...yearsWith].map(y =>
+    `<button class="year-pill${String(y) === String(tradesYear) ? " active" : ""}" onclick="setTradesYear('${y}')">${y === "all" ? "All Seasons" : y}</button>`
+  ).join("");
+
+  const list = espnTrades
+    .filter(t => tradesYear === "all" || String(t.season) === String(tradesYear))
+    .sort((a, b) => (b.date || 0) - (a.date || 0) || b.season - a.season);
+
+  if (!list.length) {
+    out.innerHTML = `<div class="trades-placeholder"><div class="icon">🔄</div><h3>No Trades Yet</h3>
+      <p>No completed trades on record${tradesYear === "all" ? "" : ` for ${tradesYear}`}. ESPN only keeps transactions from ${TRADES_FROM} on.</p></div>`;
+    return;
+  }
+
+  out.innerHTML = `<div class="trade-timeline">${list.map((t, idx) => {
+    const when = t.date
+      ? new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : String(t.season);
+    const wk = t.week ? ` · Week ${t.week}` : " · Preseason";
+    const sides = t.teams.map(tid => {
+      const name = esc(tradeOwnerName(t.season, tid));
+      const gets  = t.items.filter(i => i.type === "TRADE" && i.to === tid);
+      const drops = t.items.filter(i => i.type === "DROP" && i.from === tid);
+      const li = gets.map(i => `<li>${esc(i.name)}${i.pos ? ` (${esc(i.pos)})` : ""}</li>`).join("")
+        + drops.map(i => `<li class="drop">Dropped ${esc(i.name)}${i.pos ? ` (${esc(i.pos)})` : ""}</li>`).join("");
+      return `<div class="trade-side">
+          <span class="trade-side-label">${name} receives</span>
+          <ul class="trade-assets">${li || "<li><em>Nothing</em></li>"}</ul>
+        </div>`;
+    }).join(`<div class="trade-arrow">⇄</div>`);
+    return `<div class="trade-item">
+        <div class="trade-timeline-line">
+          <div class="trade-dot"></div>
+          ${idx < list.length - 1 ? '<div class="trade-line-seg"></div>' : ""}
+        </div>
+        <div class="trade-card">
+          <div class="trade-date">Trade · ${when}${wk}</div>
+          <div class="trade-row">${sides}</div>
+        </div>
+      </div>`;
+  }).join("")}</div>`;
 }
 
 // ═══════════════════════════════════════════════════

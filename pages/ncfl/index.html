@@ -433,7 +433,6 @@
 <script>
 // ═══════════════════════════════════════════════════
 // CONFIG — real NCFL league IDs
-// 2026 intentionally omitted (no data yet)
 // ═══════════════════════════════════════════════════
 const LEAGUE_CONFIG = {
   name: "No Cap Football League",
@@ -779,7 +778,16 @@ async function fetchAllSeasons() {
       const rosterUserMap = {};
       rosters.forEach(r => { rosterUserMap[r.roster_id] = r.owner_id; });
 
-      allSeasonData[year] = { rosters, users, matchupWeeks, bracketData, loserBracket, leagueInfo, rosterUserMap };
+      // In-progress season: keep only weeks Sleeper has finished scoring, so a
+      // half-played week can't land in records / all-play / H2H. Division titles
+      // wait until the regular season is over (otherwise the current leader gets one).
+      const st   = leagueInfo.settings || {};
+      const live = !!leagueInfo.status && leagueInfo.status !== "complete";
+      const scored = st.last_scored_leg || 0;
+      if (live) matchupWeeks.forEach((_, i) => { if (i + 1 > scored) matchupWeeks[i] = []; });
+      const regSeasonDone = !live || scored >= (st.playoff_week_start || 15) - 1;
+
+      allSeasonData[year] = { rosters, users, matchupWeeks, bracketData, loserBracket, leagueInfo, rosterUserMap, regSeasonDone };
     } catch (e) {
       console.warn(`Could not load season ${year}:`, e.message);
     }
@@ -874,7 +882,7 @@ function renderStandings(year, sortCol, sortDir) {
       divGroups[div].push(r);
     });
     const divChampRosters = new Set();
-    Object.values(divGroups).forEach(group => {
+    if (sd.regSeasonDone) Object.values(divGroups).forEach(group => {
       if (group.length === 0) return;
       const winner = group.reduce((best, r) => {
         const bW = best.settings?.wins || 0, bPF = (best.settings?.fpts || 0) + (best.settings?.fpts_decimal || 0) / 100;
@@ -1483,18 +1491,18 @@ function loadRecords() {
     streakData[uid] = { maxWin, maxLoss, maxWinCtx, maxLossCtx, name: ownerMap[uid]?.display_name || uid };
   });
 
-  // Top 5 win streaks
+  // Top 10 win streaks
   const topWinStreaks = Object.values(streakData)
-    .sort((a, b) => b.maxWin - a.maxWin).slice(0, 5);
+    .sort((a, b) => b.maxWin - a.maxWin).slice(0, 10);
 
-  // Top 5 loss streaks
+  // Top 10 loss streaks
   const topLossStreaks = Object.values(streakData)
-    .sort((a, b) => b.maxLoss - a.maxLoss).slice(0, 5);
+    .sort((a, b) => b.maxLoss - a.maxLoss).slice(0, 10);
 
   // Unique games (dedupe — each matchup appears twice in allGames)
   const uniqueGames = allGames.filter(g => g.pts >= g.oppPts); // keep higher scorer's entry
 
-  // Top 5 scoring seasons (total PF per owner per year)
+  // Top 10 scoring seasons (total PF per owner per year)
   const seasonPF = {}; // "uid:year" → { name, year, totalPF }
   Object.entries(allSeasonData).forEach(([year, sd]) => {
     sd.rosters.forEach(r => {
@@ -1508,7 +1516,7 @@ function loadRecords() {
     });
   });
   const topScoringSeasons = Object.values(seasonPF)
-    .sort((a, b) => b.totalPF - a.totalPF).slice(0, 5);
+    .sort((a, b) => b.totalPF - a.totalPF).slice(0, 10);
 
   // Top 10 highest scores
   const topScores = [...allGames]
@@ -1519,15 +1527,15 @@ function loadRecords() {
     .filter(g => g.pts > 0)
     .sort((a, b) => a.pts - b.pts).slice(0, 10);
 
-  // Top 5 blowouts (biggest margin)
+  // Top 10 blowouts (biggest margin)
   const blowouts = [...allGames]
     .filter(g => g.win)
-    .sort((a, b) => (b.pts - b.oppPts) - (a.pts - a.oppPts)).slice(0, 5);
+    .sort((a, b) => (b.pts - b.oppPts) - (a.pts - a.oppPts)).slice(0, 10);
 
-  // Top 5 closest games (smallest margin, winner's perspective)
+  // Top 10 closest games (smallest margin, winner's perspective)
   const closest = [...allGames]
     .filter(g => g.win)
-    .sort((a, b) => (a.pts - a.oppPts) - (b.pts - b.oppPts)).slice(0, 5);
+    .sort((a, b) => (a.pts - a.oppPts) - (b.pts - b.oppPts)).slice(0, 10);
 
   function rankIcon(i) {
     return i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}.`;
@@ -1596,15 +1604,15 @@ function loadRecords() {
         <ul class="records-list">${scoreList(lowScores)}</ul>
       </div>
       <div class="records-card">
-        <div class="records-card-head">💣 Top 5 Blowouts</div>
+        <div class="records-card-head">💣 Top 10 Blowouts</div>
         <ul class="records-list">${marginList(blowouts, "blowout")}</ul>
       </div>
       <div class="records-card">
-        <div class="records-card-head">🤏 Top 5 Closest Games</div>
+        <div class="records-card-head">🤏 Top 10 Closest Games</div>
         <ul class="records-list">${marginList(closest, "close")}</ul>
       </div>
       <div class="records-card">
-        <div class="records-card-head">📈 Top 5 Scoring Seasons</div>
+        <div class="records-card-head">📈 Top 10 Scoring Seasons</div>
         <ul class="records-list">${seasonList(topScoringSeasons)}</ul>
       </div>
     </div>`;
