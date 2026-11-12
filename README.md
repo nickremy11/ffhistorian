@@ -117,3 +117,22 @@ npx wrangler secret put ESPN_SWID   # include the braces: {XXXXXXXX-...}
 ```
 
 Without them the page falls back to the last R2 snapshot.
+
+---
+
+## Recap tab (`pages/recap.js`)
+
+Every league page has a **📰 Recap** tab: playoff picture, still in the hunt, eliminated, and
+(dynasty only) the projected next-season draft order. One shared file — each page only adds the
+tab, the `#recapContent` panel and an `rcOpen(...)` call in `switchTab`.
+
+- **Playoff %** is sleeper-helper's own engine (`shared-utils.js` + `league-engine.js`, loaded
+  from helper.ffhistorian.com on first open — bump `RC_ENGINE_V` with helper's `?v=` stamp).
+  Simulated from banked weeks with Sleeper weekly projections (`/api/projections/:season/:week`).
+- **Clinched / eliminated** are mathematical and conservative (a possible tie on record counts as
+  passable). Sleeper divisions don't affect qualification (top N by record every season
+  2021–2025); ESPN's do — division winners are seeded first — and the ESPN rules account for it.
+- **Draft order**: playoff teams pick last in reverse of finish (seed until the bracket decides
+  it); everyone else by Max PF, lowest first. Traded picks from `/api/league/:id/traded_picks`.
+- **ESPN** (Elite FFL) reads `/api/espn/eliteffl/recap/:season` (settings + rosters + schedule;
+  needs the `ESPN_S2`/`ESPN_SWID` secrets) and prices rosters with Sleeper projections by name.

@@ -336,6 +336,7 @@
   <nav class="tab-bar">
     <div class="tab-bar-inner">
       <button class="tab-btn active" onclick="switchTab('standings', this)">📜 Standings</button>
+      <button class="tab-btn" onclick="switchTab('recap', this)">📰 Recap</button>
       <button class="tab-btn" onclick="switchTab('h2h', this)">⚔️ Head to Head</button>
       <button class="tab-btn" onclick="switchTab('trades', this)">🔄 Trade History</button>
       <button class="tab-btn" onclick="switchTab('records', this)">🏅 League Records</button>
@@ -356,6 +357,15 @@
       <div id="standingsContent">
         <div class="loading"><div class="spinner"></div><br/>Loading records from the archive…</div>
       </div>
+    </section>
+
+    <!-- RECAP -->
+    <section class="panel" id="panel-recap">
+      <div class="section-head">
+        <h2>League Recap</h2>
+        <div class="section-head-line"></div>
+      </div>
+      <div id="recapContent"></div>
     </section>
 
     <!-- LEAGUE RECORDS -->
@@ -430,6 +440,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="/recap.js?v=20261111"></script>
 <script>
 // ═══════════════════════════════════════════════════
 // CONFIG — real league IDs
@@ -789,6 +800,7 @@ function switchTab(tab, btn) {
   document.getElementById("panel-" + tab).classList.add("active");
   btn.classList.add("active");
   if (tab === "records" && !recordsLoaded) { loadRecords(); recordsLoaded = true; }
+  if (tab === "recap") rcOpen({ seasons: LEAGUE_CONFIG.seasons, players: () => playerMap });
 }
 let recordsLoaded = false;
 

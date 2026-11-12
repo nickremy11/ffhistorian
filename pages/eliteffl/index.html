@@ -370,6 +370,7 @@
   <nav class="tab-bar">
     <div class="tab-bar-inner">
       <button class="tab-btn active" onclick="switchTab('standings', this)">📜 Standings</button>
+      <button class="tab-btn" onclick="switchTab('recap', this)">📰 Recap</button>
       <button class="tab-btn" onclick="switchTab('draftRecap', this)">🎉 2026 Draft Recap</button>
       <button class="tab-btn" onclick="switchTab('h2h', this)">⚔️ Head to Head</button>
       <button class="tab-btn" onclick="switchTab('draftHistory', this)">📋 Draft History</button>
@@ -708,6 +709,15 @@
       <div id="tradesContent"><div class="loading">Loading trades…</div></div>
     </section>
 
+    <!-- RECAP -->
+    <section class="panel" id="panel-recap">
+      <div class="section-head">
+        <h2>League Recap</h2>
+        <div class="section-head-line"></div>
+      </div>
+      <div id="recapContent"></div>
+    </section>
+
     <!-- LEAGUE RECORDS -->
     <section class="panel" id="panel-records">
       <div class="section-head"><h2>League Records</h2><div class="section-head-line"></div></div>
@@ -726,6 +736,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://helper.ffhistorian.com/shared-auth.js"></script>
+<script src="/recap.js?v=20261111"></script>
 <script>
 // ═══════════════════════════════════════════════════
 // CONFIG
@@ -922,6 +933,7 @@ function switchTab(tab, btn) {
   document.getElementById("panel-" + tab).classList.add("active");
   btn.classList.add("active");
   if (tab === "records" && !recordsLoaded) { loadRecords(); recordsLoaded = true; }
+  if (tab === "recap") rcOpen({ espnKey: LEAGUE_KEY, season: CURRENT_SEASON, leagueName: "Elite FFL", ownerName: id => nickname(id) });
   if (tab === "trades") initTradesTab();
   if (tab === "draftHistory")  initDraftHistoryTab();
   if (tab === "keeperOptions") initKeeperOptionsTab();

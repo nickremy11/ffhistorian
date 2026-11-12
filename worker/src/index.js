@@ -7,6 +7,9 @@
  *          /api/league/:leagueId/matchups/:week
  *          /api/league/:leagueId/transactions/:week
  *          /api/league/:leagueId/trades   ← aggregates all trade transactions
+ *          /api/league/:leagueId/traded_picks
+ *          /api/projections/:season/:week ← Sleeper weekly projections (Recap tab)
+ *          /api/espn/:key/recap/:season   ← ESPN settings + rosters + schedule (Recap tab)
  */
 
 const SLEEPER_BASE = "https://api.sleeper.app/v1";
@@ -205,6 +208,49 @@ async function getEspnLiveSeason(env, key, league, season) {
   }
 }
 
+// Everything the Recap tab needs for one ESPN season, in one KV-cached read: the
+// settings that define the playoffs (playoff team count, regular-season length),
+// scoring + lineup slots (for projected scores), every roster (player names, matched
+// to Sleeper ids on the page), team records / ESPN's own current seeds, and the
+// schedule. Rosters are trimmed to {name, pos, proTeamId} so the cached value stays small.
+async function getEspnRecap(env, key, league, season) {
+  const kvKey = `espnrecap:${key}:${season}`;
+  const cached = await env.FF_CACHE.get(kvKey);
+  if (cached) { try { return JSON.parse(cached); } catch { /* refetch */ } }
+  try {
+    const d = await espnFetch(env, `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}`
+      + "?view=mSettings&view=mTeam&view=mRoster&view=mMatchupScore&view=mStatus");
+    if (!Array.isArray(d.teams) || !d.teams.length) return null;
+    const st = d.settings || {};
+    const data = {
+      seasonId: season,
+      settings: {
+        scheduleSettings: st.scheduleSettings || {},
+        scoringSettings:  { scoringItems: st.scoringSettings?.scoringItems || [] },
+        rosterSettings:   { lineupSlotCounts: st.rosterSettings?.lineupSlotCounts || {} },
+      },
+      status:   d.status || {},
+      members:  d.members || [],
+      schedule: d.schedule || [],
+      teams: d.teams.map(t => ({
+        id: t.id, name: t.name || [t.location, t.nickname].filter(Boolean).join(" "),
+        primaryOwner: t.primaryOwner, owners: t.owners || [],
+        divisionId: t.divisionId, playoffSeed: t.playoffSeed,
+        record: t.record || {},
+        roster: (t.roster?.entries || []).map(e => {
+          const p = e.playerPoolEntry?.player || e.playerPoolEntry?.playerPoolEntry?.player || {};
+          return { name: p.fullName, pos: p.defaultPositionId, proTeamId: p.proTeamId };
+        }).filter(p => p.name),
+      })),
+    };
+    await env.FF_CACHE.put(kvKey, JSON.stringify(data), { expirationTtl: getTTL() });
+    return data;
+  } catch (e) {
+    console.warn(`ESPN recap ${key} ${season}:`, e.message);
+    return null;
+  }
+}
+
 // Completed trades for one season → [{ id, season, week, date, teams:[teamId], items:[{playerId,
 // name, pos, from, to, type}] }]. type is "TRADE" or "DROP" (a roster-space drop made with it).
 // Past seasons are built once and kept in R2; the current season refreshes on the KV ttl.
@@ -384,9 +430,21 @@ export default {
       });
     }
 
-    // Only handle /api/league/..., /api/players, or /api/espn/...
-    if (!path.startsWith("/api/league/") && path !== "/api/players" && !path.startsWith("/api/espn/")) {
+    // Only handle /api/league/..., /api/players, /api/projections/..., or /api/espn/...
+    if (!path.startsWith("/api/league/") && path !== "/api/players"
+        && !path.startsWith("/api/espn/") && !path.startsWith("/api/projections/")) {
       return new Response("Not found", { status: 404 });
+    }
+
+    // ── SLEEPER WEEKLY PROJECTIONS (recap playoff odds) ──
+    // /api/projections/:season/:week → {player_id: projected stat line}, ~570 KB.
+    if (path.startsWith("/api/projections/")) {
+      const [season, week] = path.replace("/api/projections/", "").split("/");
+      if (!/^\d{4}$/.test(season || "") || !(Number(week) >= 1 && Number(week) <= 18)) {
+        return espnJson({ error: "Invalid projections route" }, 400);
+      }
+      return fetchWithCache(env, `proj:${season}:${Number(week)}`,
+        `${SLEEPER_BASE}/projections/nfl/regular/${season}/${Number(week)}`, getTTL());
     }
 
     // ── ESPN ROUTES ───────────────────────────────────────
@@ -408,6 +466,11 @@ export default {
         if (league && seasonOrKey === "trades" && /^\d{4}$/.test(espnSegments[2] || "")) {
           return espnJson(await getEspnTrades(env, leagueKey, league, Number(espnSegments[2])),
             200, Number(espnSegments[2]) >= currentSeason() ? 300 : 3600);
+        }
+
+        if (league && seasonOrKey === "recap" && /^\d{4}$/.test(espnSegments[2] || "")) {
+          const data = await getEspnRecap(env, leagueKey, league, Number(espnSegments[2]));
+          return data ? espnJson(data, 200, 300) : espnJson({ error: "ESPN recap unavailable" }, 502);
         }
 
         if (league && /^\d{4}$/.test(seasonOrKey) && Number(seasonOrKey) >= currentSeason()) {
@@ -527,6 +590,16 @@ export default {
         env,
         `losers_bracket:${leagueId}`,
         `${SLEEPER_BASE}/league/${leagueId}/losers_bracket`,
+        ttl
+      );
+    }
+
+    // ── TRADED PICKS (recap draft order) ─────────────────
+    if (resource === "traded_picks") {
+      return fetchWithCache(
+        env,
+        `traded_picks:${leagueId}`,
+        `${SLEEPER_BASE}/league/${leagueId}/traded_picks`,
         ttl
       );
     }
