@@ -211,7 +211,9 @@ async function getEspnLiveSeason(env, key, league, season) {
 async function getEspnTrades(env, key, league, season) {
   if (season < league.tradesFrom) return [];
   const live  = season >= currentSeason();
-  const r2Key = `espn/${key}/trades-${season}.json`;
+  // v2: adds trades rebuilt from weekly rosters (ESPN hides other teams' trades) — the v1
+  // files only hold the cookie owner's own trades, so they're ignored rather than reused.
+  const r2Key = `espn/${key}/trades-v2-${season}.json`;
   const kvKey = `espntrades:${key}:${season}`;
 
   if (live) {
@@ -226,9 +228,11 @@ async function getEspnTrades(env, key, league, season) {
   try {
     trades = await buildEspnTrades(env, league, season);
   } catch (e) {
-    // No cookies / ESPN down — serve the last snapshot rather than nothing
-    const obj = await env.ESPN_DATA.get(r2Key);
-    if (obj) { try { return JSON.parse(await obj.text()); } catch {} }
+    // No cookies / ESPN down — serve the last snapshot rather than nothing (v1 = own trades only)
+    for (const k of [r2Key, `espn/${key}/trades-${season}.json`]) {
+      const obj = await env.ESPN_DATA.get(k);
+      if (obj) { try { return JSON.parse(await obj.text()); } catch {} }
+    }
     throw e;
   }
   const body = JSON.stringify(trades);
@@ -283,6 +287,11 @@ async function buildEspnTrades(env, league, season) {
     };
   }).filter(t => t.teams.length >= 2);
 
+  trades.push(...await rosterTrades(env, league, season, txs, trades).catch(e => {
+    console.warn(`roster trades ${season}:`, e.message);
+    return [];
+  }));
+
   // Names — the public players endpoint, no cookies needed
   const ids = [...new Set(trades.flatMap(t => t.items.map(i => i.playerId)))];
   if (ids.length) {
@@ -299,7 +308,64 @@ async function buildEspnTrades(env, league, season) {
       }));
     } catch { /* names optional */ }
   }
-  return trades.sort((a, b) => (a.date || 0) - (b.date || 0));
+  return trades.sort((a, b) => a.week - b.week || (a.date || 0) - (b.date || 0));
+}
+
+// mTransactions2 only returns trades the cookie's owner was part of, so every other
+// trade in the league is invisible there. They're rebuilt instead from where each player
+// sat week to week (draft → week 1 → … → latest): a player who changes teams with no
+// free-agent / waiver add by the new team in that window moved by trade. Moves in the
+// same week are grouped into one trade per connected set of teams. These carry no date
+// (just the week the new rosters first show, the same week ESPN stamps its own trades
+// with) and no roster-space drops. Trades already found in `known` are skipped.
+// Pre-draft trades (keeper deals) leave no roster trace, so only the owner's own show.
+async function rosterTrades(env, league, season, txs, known) {
+  const base = `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}`;
+  const meta = await espnFetch(env, `${base}?view=mDraftDetail&view=mStatus`);
+  const st   = meta.status || {};
+  const last = season >= currentSeason()
+    ? (st.latestScoringPeriod || st.currentMatchupPeriod || 1)
+    : (st.finalScoringPeriod || 17);
+  const weeks = await Promise.all(Array.from({ length: last }, (_, i) =>
+    espnFetch(env, `${base}?view=mRoster&scoringPeriodId=${i + 1}`).catch(() => null)));
+
+  const added = new Set(); // `${pid}:${toTeam}:${period}`
+  txs.forEach(t => {
+    if (t.status !== "EXECUTED" || !["FREEAGENT", "WAIVER"].includes(t.type)) return;
+    (t.items || []).forEach(i => { if (i.type === "ADD") added.add(`${i.playerId}:${i.toTeamId}:${t.scoringPeriodId || 0}`); });
+  });
+  const knownMove = new Set(known.flatMap(t => t.items.map(i => `${i.playerId}:${i.from}:${i.to}`)));
+
+  let prev = new Map((meta.draftDetail?.picks || []).map(p => [p.playerId, p.teamId]));
+  const out = [];
+  weeks.forEach((wk, i) => {
+    if (!wk) return;
+    const p = i + 1;
+    const now = new Map();
+    (wk.teams || []).forEach(t => (t.roster?.entries || []).forEach(e => now.set(e.playerId, t.id)));
+    const moves = [];
+    now.forEach((to, pid) => {
+      const from = prev.get(pid);
+      if (from == null || from === to) return;
+      if (added.has(`${pid}:${to}:${p}`) || added.has(`${pid}:${to}:${p - 1}`)) return;
+      if (knownMove.has(`${pid}:${from}:${to}`)) return;
+      moves.push({ playerId: pid, from, to, type: "TRADE" });
+    });
+    prev = now;
+    // Group by connected teams: A⇄B and C⇄D in the same week are two trades.
+    const groups = [];
+    moves.forEach(m => {
+      const hit = groups.filter(g => g.teams.has(m.from) || g.teams.has(m.to));
+      const g = { teams: new Set([m.from, m.to]), items: [m] };
+      hit.forEach(h => { h.teams.forEach(x => g.teams.add(x)); g.items.push(...h.items); groups.splice(groups.indexOf(h), 1); });
+      groups.push(g);
+    });
+    groups.forEach((g, k) => out.push({
+      id: `r${season}-${p}-${k}`, season, week: p, date: null, rebuilt: true,
+      teams: [...g.teams], items: g.items,
+    }));
+  });
+  return out;
 }
 
 export default {

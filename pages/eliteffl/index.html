@@ -241,30 +241,37 @@
     .import-result.ok { color:var(--green-light); }
 
     /* ── KEEPER OPTIONS GRID ── */
-    .keeper-grid { display:flex; gap:16px; overflow-x:auto; padding-bottom:10px; }
-    .keeper-col { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; min-width:230px; flex:0 0 230px; box-shadow:4px 4px 0 var(--brown-mid); }
-    .keeper-col-head { background:var(--green); color:var(--gold-light); font-family:'Rye',serif; font-size:0.66rem; letter-spacing:0.15em; text-transform:uppercase; padding:10px 14px; text-align:center; }
-    .keeper-player { border-bottom:1px solid rgba(255,255,255,0.08); padding:6px 12px; }
-    .keeper-player.pos-QB  { background:rgba(201,150,42,0.22); }
-    .keeper-player.pos-RB  { background:rgba(74,122,47,0.28); }
-    .keeper-player.pos-WR  { background:rgba(59,130,164,0.26); }
-    .keeper-player.pos-TE  { background:rgba(153,64,110,0.26); }
-    .keeper-player.pos-K   { background:rgba(140,140,140,0.18); }
-    .keeper-player.pos-DST { background:rgba(139,26,26,0.24); }
-    .keeper-player-name { color:var(--cream); font-family:'Crimson Text',serif; font-size:0.82rem; display:flex; align-items:center; justify-content:space-between; gap:6px; }
-    .keeper-player-pos { opacity:0.65; font-size:0.66rem; letter-spacing:0.05em; }
-    .keeper-cost-row { display:flex; justify-content:space-between; align-items:baseline; margin-top:2px; }
-    .keeper-cost-big { font-family:'Playfair Display',serif; font-weight:700; font-size:1.05rem; color:var(--gold-light); }
-    .keeper-espn-val { font-family:'Crimson Text',serif; font-size:0.66rem; color:var(--parchment); opacity:0.75; }
-    .keeper-player-links { margin-top:2px; display:flex; gap:8px; }
-    .keeper-player-links a { font-size:0.64rem; color:var(--gold-light); opacity:0.75; text-decoration:none; cursor:pointer; }
-    .keeper-player-links a:hover { opacity:1; text-decoration:underline; }
-    .kept-badge { display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:16px; padding:0 4px; border-radius:8px; font-size:0.58rem; font-weight:700; font-family:'Crimson Text',serif; cursor:pointer; flex-shrink:0; }
+    /* Keeper Options — owner cards that wrap, one compact line per player */
+    .keeper-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(255px, 1fr)); gap:14px; }
+    .keeper-col { background:var(--brown-dark); border:2px solid var(--brown-mid); border-radius:2px; box-shadow:3px 3px 0 var(--brown-mid); min-width:0; }
+    .keeper-col-head { background:var(--green); color:var(--gold-light); font-family:'Rye',serif; font-size:0.62rem; letter-spacing:0.15em; text-transform:uppercase; padding:7px 10px; display:flex; justify-content:space-between; align-items:baseline; }
+    .keeper-col-head small { font-family:'Crimson Text',serif; letter-spacing:0; text-transform:none; font-size:0.72rem; color:var(--parchment); opacity:0.75; }
+    .ko-row, .ko-cols { display:grid; grid-template-columns:24px minmax(0,1fr) 34px 34px 36px; align-items:center; column-gap:6px; padding:0 8px; }
+    .ko-cols { font-family:'Crimson Text',serif; font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--parchment); opacity:0.55; padding-top:4px; padding-bottom:2px; }
+    .keeper-grid.no-espn .ko-row, .keeper-grid.no-espn .ko-cols { grid-template-columns:24px minmax(0,1fr) 34px 36px; }
+    .keeper-grid.no-espn .ko-espn { display:none; }
+    .keeper-grid.no-espn .ko-admin { right:48px; }
+    .ko-cols span:nth-child(n+3), .ko-row > span:nth-child(n+3) { text-align:right; }
+    .ko-row { position:relative; height:23px; border-top:1px solid rgba(255,255,255,0.05); font-family:'Crimson Text',serif; font-size:0.8rem; color:var(--cream); }
+    .ko-row.pos-break { border-top:1px solid rgba(201,150,42,0.45); }
+    .ko-row:hover { background:rgba(255,255,255,0.05); }
+    .ko-pos { font-size:0.56rem; font-weight:700; letter-spacing:0.04em; text-align:center; border-radius:2px; padding:1px 0; color:var(--cream); }
+    .ko-pos.pos-QB { background:rgba(201,150,42,0.55); } .ko-pos.pos-RB { background:rgba(74,122,47,0.75); }
+    .ko-pos.pos-WR { background:rgba(59,130,164,0.7); }  .ko-pos.pos-TE { background:rgba(153,64,110,0.7); }
+    .ko-pos.pos-K, .ko-pos.pos-DST { background:rgba(140,140,140,0.4); }
+    .ko-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:5px; }
+    .ko-name > span:first-child { overflow:hidden; text-overflow:ellipsis; }
+    .ko-espn, .ko-ppg { font-size:0.72rem; color:var(--parchment); opacity:0.8; font-variant-numeric:tabular-nums; }
+    .ko-cost { font-family:'Playfair Display',serif; font-weight:700; font-size:0.86rem; color:var(--gold-light); font-variant-numeric:tabular-nums; }
+    .ko-admin { display:none; position:absolute; right:84px; top:3px; gap:4px; }
+    .ko-row:hover .ko-admin { display:flex; }
+    .ko-admin a { font-size:0.62rem; background:var(--brown-mid); color:var(--gold-light); padding:1px 5px; border-radius:2px; cursor:pointer; text-decoration:none; }
+    .kept-badge { display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:14px; padding:0 4px; border-radius:7px; font-size:0.56rem; font-weight:700; font-family:'Crimson Text',serif; cursor:pointer; flex-shrink:0; }
     .kept-badge.k0 { background:var(--brown-mid); color:var(--parchment); }
     .kept-badge.k1 { background:#3a5f7a; color:#cfe6f5; }
     .kept-badge.k2 { background:var(--gold); color:var(--brown-dark); }
     .kept-badge.k3 { background:var(--red); color:var(--cream); }
-    .keeper-empty { padding:16px 14px; color:var(--parchment); opacity:0.5; font-style:italic; font-size:0.8rem; text-align:center; }
+    .keeper-empty { padding:12px; color:var(--parchment); opacity:0.5; font-style:italic; font-size:0.8rem; text-align:center; }
     .keeper-add-row { padding:12px 14px; }
     .keeper-add-row input, .keeper-add-row select { width:100%; margin-bottom:6px; background:var(--cream); border:2px solid var(--brown-mid); color:var(--ink); font-family:'Crimson Text',serif; font-size:0.82rem; padding:5px 8px; border-radius:2px; box-sizing:border-box; }
     .keeper-legend { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; font-size:0.78rem; color:var(--brown-light); align-items:center; }
@@ -666,12 +673,11 @@
     <!-- KEEPER OPTIONS -->
     <section class="panel" id="panel-keeperOptions">
       <div class="section-head"><h2>Keeper Options<span class="admin-badge" id="ko-admin-badge" style="display:none;">Site Lead</span></h2><div class="section-head-line"></div></div>
-      <p class="import-hint" style="margin:-10px 0 18px;">Who's currently eligible to be kept for the next draft, and what it would cost. Maintained by hand — click a kept-count badge to cycle it, or use Edit for cost/PPG.</p>
+      <p class="import-hint" style="margin:-10px 0 18px;">Who can be kept at next year's draft, and what it would cost: anyone drafted this season who hasn't been dropped (no K or D/ST), on the team that holds him now. Synced from ESPN daily. PPG is this season's, in league scoring.</p>
       <div class="keeper-legend">
-        <span><span class="kept-badge k0">0</span> never kept</span>
-        <span><span class="kept-badge k1">1</span> kept once</span>
-        <span><span class="kept-badge k2">2</span> kept twice</span>
-        <span><span class="kept-badge k3">3+</span> kept 3+ times</span>
+        <span><span class="kept-badge k2">2nd</span> would be his 2nd keep</span>
+        <span><span class="kept-badge k3">3rd</span> 3rd keep or later</span>
+        <span>No badge: a first-time keep (draft price + $5)</span>
       </div>
       <div class="tab-actions admin-only" id="ko-admin-actions" style="display:none;">
         <button class="btn ghost" onclick="koToggleImport()">⬆ Bulk Import</button>
@@ -700,6 +706,7 @@
     <section class="panel" id="panel-trades">
       <div class="section-head"><h2>Trade History</h2><div class="section-head-line"></div></div>
       <div class="trade-filters" id="tradeYearPills"></div>
+      <div class="trade-filters" id="tradeOwnerPills"></div>
       <div id="tradesContent"><div class="loading">Loading trades…</div></div>
     </section>
 
@@ -1517,6 +1524,8 @@ function loadRecords() {
 // ═══════════════════════════════════════════════════
 let espnTrades = null;     // [{ id, season, week, date, teams, items:[{name,pos,from,to,type}] }]
 let tradesYear = "all";
+let tradesOwner = "all";   // nickname, or "all"
+
 let tradesLoading = null;
 
 async function initTradesTab() {
@@ -1543,6 +1552,7 @@ function tradeOwnerName(season, teamId) {
 }
 
 function setTradesYear(yr) { tradesYear = yr; renderTrades(); }
+function setTradesOwner(o) { tradesOwner = o; renderTrades(); }
 
 function renderTrades() {
   const pills = document.getElementById("tradeYearPills");
@@ -1554,9 +1564,19 @@ function renderTrades() {
     `<button class="year-pill${String(y) === String(tradesYear) ? " active" : ""}" onclick="setTradesYear('${y}')">${y === "all" ? "All Seasons" : y}</button>`
   ).join("");
 
-  const list = espnTrades
-    .filter(t => tradesYear === "all" || String(t.season) === String(tradesYear))
-    .sort((a, b) => (b.date || 0) - (a.date || 0) || b.season - a.season);
+  const inYear = espnTrades.filter(t => tradesYear === "all" || String(t.season) === String(tradesYear));
+  const ownersOf = t => t.teams.map(tid => tradeOwnerName(t.season, tid));
+  // Every owner who traded in the selected season(s), busiest first.
+  const counts = {};
+  inYear.forEach(t => new Set(ownersOf(t)).forEach(o => { counts[o] = (counts[o] || 0) + 1; }));
+  if (tradesOwner !== "all" && !counts[tradesOwner]) tradesOwner = "all";
+  document.getElementById("tradeOwnerPills").innerHTML = ["all", ...Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b))]
+    .map(o => `<button class="year-pill${o === tradesOwner ? " active" : ""}" data-o="${esc(o)}" onclick="setTradesOwner(this.dataset.o)">${o === "all" ? "All Owners" : `${esc(o)} · ${counts[o]}`}</button>`)
+    .join("");
+
+  const list = inYear
+    .filter(t => tradesOwner === "all" || ownersOf(t).includes(tradesOwner))
+    .sort((a, b) => b.season - a.season || b.week - a.week || (b.date || 0) - (a.date || 0));
 
   if (!list.length) {
     out.innerHTML = `<div class="trades-placeholder"><div class="icon">🔄</div><h3>No Trades Yet</h3>
@@ -1565,6 +1585,7 @@ function renderTrades() {
   }
 
   out.innerHTML = `<div class="trade-timeline">${list.map((t, idx) => {
+    // Rebuilt trades (other teams' — ESPN hides them) only know the week, not the day.
     const when = t.date
       ? new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
       : String(t.season);
@@ -2191,38 +2212,53 @@ function koDeriveSuggestion(owner, playerName) {
   return { originalPrice, timesKept: streak + 1, ppg: mostRecent.ppg_this, position: mostRecent.position };
 }
 
+const KO_POS_ORDER = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
+function koSort(a, b) {
+  return (KO_POS_ORDER[a.position] ?? 9) - (KO_POS_ORDER[b.position] ?? 9)
+    || (b.keeper_cost ?? -1) - (a.keeper_cost ?? -1)
+    || a.player_name.localeCompare(b.player_name);
+}
+function koOrdinal(n) { return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"); }
+
 function koRender() {
   document.getElementById("ko-admin-badge").style.display = isAdmin() ? "" : "none";
   document.getElementById("ko-admin-actions").style.display = isAdmin() ? "flex" : "none";
   if (!isAdmin()) { koImportOpen = false; document.getElementById("ko-import-panel").innerHTML = ""; }
   const owners = dhOwnerNickList();
   const grid = owners.map(owner => {
-    const players = (koOptions || []).filter(o => o.owner === owner)
-      .sort((a, b) => (b.keeper_cost ?? -1) - (a.keeper_cost ?? -1));
-    const rowsHtml = players.length ? players.map(koPlayerRow).join("") : `<div class="keeper-empty">No eligible keepers listed</div>`;
+    const players = (koOptions || []).filter(o => o.owner === owner).sort(koSort);
+    const rowsHtml = players.length
+      ? `<div class="ko-cols"><span></span><span>Player</span><span class="ko-espn" title="ESPN auction value">ESPN</span><span>PPG</span><span>Cost</span></div>`
+        + players.map((o, i) => koPlayerRow(o, i > 0 && players[i - 1].position !== o.position)).join("")
+      : `<div class="keeper-empty">No eligible keepers</div>`;
     return `<div class="keeper-col">
-      <div class="keeper-col-head">${esc(owner)}</div>
+      <div class="keeper-col-head"><span>${esc(owner)}</span><small>${players.length} eligible</small></div>
       ${rowsHtml}
       ${isAdmin() ? koAddRowHtml(owner) : ""}
     </div>`;
   }).join("");
-  document.getElementById("ko-content").innerHTML = `<div class="keeper-grid">${grid}</div>`;
+  // ESPN $ only exists once ESPN prices next year's players (Auto-fill ESPN $); until then the column is noise.
+  const hasEspn = (koOptions || []).some(o => o.espn_value != null);
+  document.getElementById("ko-content").innerHTML = `<div class="keeper-grid${hasEspn ? "" : " no-espn"}">${grid}</div>`;
 }
 
-function koPlayerRow(o) {
-  const badgeCls   = koKeptClass(o.times_kept || 0);
-  const badgeLabel = (o.times_kept || 0) >= 3 ? "3+" : String(o.times_kept || 0);
-  const posCls     = "pos-" + esc((o.position || "").toUpperCase());
-  return `<div class="keeper-player ${posCls}">
-    <div class="keeper-player-name">
-      <span>${esc(o.player_name)} <span class="keeper-player-pos">${esc(o.position || "")}</span></span>
-      <span class="kept-badge ${badgeCls}" title="${isAdmin() ? "Click to cycle kept count" : "Times kept"}" ${isAdmin() ? `onclick="koCycleKept(${o.id})"` : ""}>${badgeLabel}</span>
-    </div>
-    <div class="keeper-cost-row">
-      <span class="keeper-cost-big">${o.keeper_cost != null ? "$" + o.keeper_cost : "—"}</span>
-      <span class="keeper-espn-val">ESPN ${o.espn_value != null ? "$" + o.espn_value : "—"}</span>
-    </div>
-    ${isAdmin() ? `<div class="keeper-player-links"><a onclick="koOpenEdit(${o.id})">Edit</a><a onclick="koDelete(${o.id})">Remove</a></div>` : ""}
+// times_kept on the chart = which keep this would be. A first keep is the norm, so only
+// 2nd+ gets a badge for everyone; the Site Lead always sees it (it's the click-to-cycle control).
+function koPlayerRow(o, posBreak) {
+  const n   = o.times_kept || 0;
+  const pos = esc((o.position || "").toUpperCase());
+  const orig = o.original_price != null ? ` · originally $${o.original_price}` : "";
+  const badge = n >= 2 || isAdmin()
+    ? `<span class="kept-badge ${koKeptClass(n)}" title="Would be his ${koOrdinal(n)} keep${orig}${isAdmin() ? " (click to cycle)" : ""}" ${isAdmin() ? `onclick="koCycleKept(${o.id})"` : ""}>${n >= 2 ? koOrdinal(n) : n}</span>`
+    : "";
+  const title = `${o.player_name}${orig}${o.notes ? ` · ${o.notes}` : ""}`;
+  return `<div class="ko-row${posBreak ? " pos-break" : ""}" title="${esc(title)}">
+    <span class="ko-pos pos-${pos}">${pos}</span>
+    <span class="ko-name"><span>${esc(o.player_name)}</span>${badge}</span>
+    <span class="ko-espn">${o.espn_value != null ? "$" + o.espn_value : "—"}</span>
+    <span class="ko-ppg">${o.ppg != null ? Number(o.ppg).toFixed(1) : "—"}</span>
+    <span class="ko-cost">${o.keeper_cost != null ? "$" + o.keeper_cost : "—"}</span>
+    ${isAdmin() ? `<span class="ko-admin"><a onclick="koOpenEdit(${o.id})">Edit</a><a onclick="koDelete(${o.id})">✕</a></span>` : ""}
   </div>`;
 }
 
