@@ -779,6 +779,26 @@ async function fetchAllSeasons() {
       const live = !!leagueInfo.status && leagueInfo.status !== "complete";
       const scored = st.last_scored_leg || 0;
       if (live) matchupWeeks.forEach((_, i) => { if (i + 1 > scored) matchupWeeks[i] = []; });
+
+      // Consolation games don't count for anything. In playoff weeks only championship-path
+      // games (winners bracket, no placement tag or p=1 — not 3rd/5th place, not the losers
+      // bracket) keep their matchup_id. The rest keep their row (player points still feed PPG)
+      // with matchup_id null, which H2H, all-play and League Records all skip.
+      const poStart = st.playoff_week_start || 15;
+      const pairKey = (a, b) => [a, b].sort((x, y) => x - y).join("-");
+      const champPairs = new Set((Array.isArray(bracketData) ? bracketData : [])
+        .filter(m => m.t1 && m.t2 && (m.p == null || m.p === 1))
+        .map(m => pairKey(m.t1, m.t2)));
+      matchupWeeks.forEach((week, i) => {
+        if (i + 1 < poStart || !Array.isArray(week)) return;
+        const byMid = {};
+        week.forEach(m => { if (m.matchup_id != null) (byMid[m.matchup_id] ||= []).push(m.roster_id); });
+        week.forEach(m => {
+          if (m.matchup_id == null) return;
+          const pair = byMid[m.matchup_id];
+          if (pair.length !== 2 || !champPairs.has(pairKey(pair[0], pair[1]))) m.matchup_id = null;
+        });
+      });
       const regSeasonDone = !live || scored >= (st.playoff_week_start || 15) - 1;
 
       allSeasonData[year] = { rosters, users, matchupWeeks, bracketData, loserBracket, leagueInfo, rosterUserMap, regSeasonDone };

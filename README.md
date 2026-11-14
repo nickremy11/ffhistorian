@@ -150,6 +150,16 @@ Without them the page falls back to the last R2 snapshot.
 
 ---
 
+## Consolation games don't count
+
+On every standard league page, a playoff week's game counts only if it's on the championship
+path: a winners-bracket match with no placement tag or `p: 1`. 3rd/5th-place games and the losers
+bracket keep their rows (player points still feed PPG) but get `matchup_id = null` in
+`fetchAllSeasons`, so H2H, all-play and League Records skip them. Standings W/L/PF come from
+roster settings (regular season only) and were never affected. Elite FFL already skipped them.
+
+---
+
 ## Recap tab (`pages/recap.js`)
 
 Every league page has a **📰 Recap** tab: playoff picture, still in the hunt, eliminated, and
