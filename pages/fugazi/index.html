@@ -935,7 +935,7 @@ function renderStandings(year, sortCol, sortDir) {
       if (!rawUid) return;
       const uid = canonicalUserId(rawUid);
       if (!records[uid]) records[uid] = {
-        wins: 0, losses: 0, pf: 0, pa: 0,
+        wins: 0, losses: 0, ties: 0, pf: 0, pa: 0,
         championships: 0, runnerUps: 0, thirdPlaces: 0,
         divTitles: 0, finalsApps: 0,
         playoffApps: 0,
@@ -943,6 +943,7 @@ function renderStandings(year, sortCol, sortDir) {
       };
       records[uid].wins   += (r.settings?.wins || 0);
       records[uid].losses += (r.settings?.losses || 0);
+      records[uid].ties   += (r.settings?.ties || 0);
       const pf = (r.settings?.fpts || 0) + (r.settings?.fpts_decimal || 0) / 100;
       const pa = (r.settings?.fpts_against || 0) + (r.settings?.fpts_against_decimal || 0) / 100;
       records[uid].pf += pf;
@@ -1004,10 +1005,13 @@ function renderStandings(year, sortCol, sortDir) {
     const a = ap[uid] || { w: 0, l: 0 };
     rec.apW = a.w; rec.apL = a.l;
     const apTotal = (a.w + a.l) || 1;
-    const total = (rec.wins + rec.losses) || 1;
+    const total = (rec.wins + rec.losses + rec.ties) || 1;
     rec.apPct = a.w / apTotal;
-    rec.wpPct = rec.wins / total;
+    rec.wpPct = (rec.wins + rec.ties / 2) / total;   // a tie is half a win
     rec.diff  = rec.wpPct - rec.apPct; // positive = overachiever
+    const gp = rec.wins + rec.losses + rec.ties; // regular-season games — what PF/PA cover
+    rec.pfpg = gp ? rec.pf / gp : 0;
+    rec.papg = gp ? rec.pa / gp : 0;
   });
 
   // Default sort: win%
@@ -1019,18 +1023,24 @@ function renderStandings(year, sortCol, sortDir) {
   });
 
   const showAllTime = year === "alltime";
+  // T column only for a league that has ever had a tie (same columns in every view)
+  const anyTies = Object.values(allSeasonData).some(sd => (sd.rosters || []).some(r => (r.settings?.ties || 0) > 0));
   const cols = [
     { key: "name",       label: "Owner",       sortable: false },
     { key: "wins",       label: "W",           sortable: true  },
     { key: "losses",     label: "L",           sortable: true  },
+    ...(anyTies ? [{ key: "ties", label: "T", sortable: true }] : []),
     { key: "wpPct",      label: "Win%",        sortable: true  },
     { key: "pf",         label: "PF",          sortable: true  },
     { key: "pa",         label: "PA",          sortable: true  },
+    { key: "pfpg",       label: "PF/G",        sortable: true  },
+    { key: "papg",       label: "PA/G",        sortable: true  },
     { key: "apW",        label: "AP W",        sortable: true  },
     { key: "apL",        label: "AP L",        sortable: true  },
     { key: "apPct",      label: "AP Win%",     sortable: true  },
     { key: "diff",       label: "+/−",         sortable: true  },
     ...(showAllTime ? [
+      { key: "championships", label: "Titles", sortable: true },
       { key: "playoffApps", label: "Playoffs", sortable: true  },
       { key: "divTitles", label: "Div", sortable: true, hidden: !LEAGUE_CONFIG.hasDivisions },
       { key: "finalsApps",  label: "Finals",   sortable: true  },
@@ -1079,14 +1089,18 @@ function renderStandings(year, sortCol, sortDir) {
       <td>${badge}${name}${awards}</td>
       <td>${rec.wins}</td>
       <td>${rec.losses}</td>
+      ${anyTies ? `<td>${rec.ties}</td>` : ""}
       <td class="win-pct">${(rec.wpPct*100).toFixed(1)}%</td>
       <td>${rec.pf.toFixed(2)}</td>
       <td>${rec.pa.toFixed(2)}</td>
+      <td>${rec.pfpg.toFixed(2)}</td>
+      <td>${rec.papg.toFixed(2)}</td>
       <td>${rec.apW}</td>
       <td>${rec.apL}</td>
       <td class="win-pct">${(rec.apPct*100).toFixed(1)}%</td>
       <td>${diffVal}</td>
       ${showAllTime ? `
+      <td>${rec.championships || "—"}</td>
       <td>${rec.playoffApps || "—"}</td>
       ${LEAGUE_CONFIG.hasDivisions ? `<td>${rec.divTitles || "—"}</td>` : ""}
       <td>${rec.finalsApps || "—"}</td>` : ""}
