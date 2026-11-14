@@ -11,12 +11,15 @@ Fantasy football historical records site for Sleeper leagues, built on Cloudflar
 ```
 ffhistorian/
 ├── pages/                   # Cloudflare Pages (static HTML)
-│   ├── index.html           # Landing page
-│   ├── ncfl/
-│   │   └── index.html       # NCFL sub-page
-│   ├── assets/
-│   │   └── ncfl_logo.png    # Drop your logo here
-│   └── _redirects
+│   ├── index.html           # Landing page — cards built from league/leagues.js
+│   ├── league/
+│   │   ├── leagues.js       # THE league list: ids, branding, format, merges
+│   │   ├── league.js        # the shared league page (all tabs, all logic)
+│   │   └── league.css       # its styles
+│   ├── {slug}/index.html    # one per league — identical stubs, never edited
+│   ├── eliteffl/            # Elite FFL — its own bespoke page
+│   ├── recap.js             # Recap tab (shared)
+│   └── assets/              # logos
 │
 ├── worker/                  # Cloudflare Worker (API cache)
 │   ├── src/index.js
@@ -65,12 +68,29 @@ git push origin main
 
 ---
 
+## Shared league framework
+
+Every standard league page is the same code. `pages/{slug}/index.html` is an identical
+stub that loads `/league/leagues.js` + `/league/league.js`; the script reads the slug from
+the URL and renders that league from its `LEAGUES` entry. A change to `league.js` or
+`league.css` changes every league at once. Elite FFL keeps its own page.
+
+What varies per league lives in its entry (documented at the top of `leagues.js`):
+`platform` (`sleeper` / `espn` — ESPN comes Sleeper-shaped from the worker, so the page
+doesn't care), `format` (`dynasty` → FantasyCalc trade market; `redraft` → in-league PPG),
+season and draft ids, `hasDivisions`, `ownershipMerges`, `teamNameAliases`.
+
+Tables fit the screen with no sideways scroll: the page uses the monitor's width (up to
+1800px), text scales with the viewport, and on narrow screens the least important
+standings columns drop out (`tier: "sec"` under 900px, `"ter"` under 560px in the
+`cols` list in `renderStandings`).
+
 ## Adding a New League
 
-1. Copy `pages/ncfl/index.html` → `pages/[leaguename]/index.html`
-2. Update `LEAGUE_CONFIG` with the new Sleeper IDs
-3. Add the league card to `pages/index.html`
-4. Drop the logo in `pages/assets/`
+1. Add an entry to `pages/league/leagues.js` (the landing card comes from it)
+2. Drop the logo in `pages/assets/`
+3. Copy any league's `index.html` into `pages/{slug}/` — every copy is identical
+4. ESPN only: register the league in `ESPN_LEAGUES` in `worker/src/index.js`
 5. Push
 
 ---
@@ -163,7 +183,7 @@ roster settings (regular season only) and were never affected. Elite FFL already
 ## Recap tab (`pages/recap.js`)
 
 Every league page has a **📰 Recap** tab: playoff picture, still in the hunt, eliminated, and
-(dynasty only) the projected next-season draft order. One shared file — each page only adds the
+(dynasty only) the projected next-season draft order. One shared file — `league/league.js` adds the
 tab, the `#recapContent` panel and an `rcOpen(...)` call in `switchTab`.
 
 - **Playoff %** is sleeper-helper's own engine (`shared-utils.js` + `league-engine.js`, loaded
