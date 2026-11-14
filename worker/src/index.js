@@ -155,7 +155,11 @@ async function fetchWithCache(env, cacheKey, url, ttl) {
 //   wrangler secret put ESPN_SWID
 // Past seasons are served from the R2 archive (scripts/migrate_espn_to_r2.py).
 const ESPN_LEAGUES = {
-  eliteffl: { id: 330437, tradesFrom: 2018 }, // transactions aren't kept for leagueHistory years
+  eliteffl:  { id: 330437,  tradesFrom: 2018 }, // transactions aren't kept for leagueHistory years
+  // Standard-template ESPN leagues — served Sleeper-shaped under /api/league/espn_{id}_{season}/…
+  // (see ESPN → SLEEPER ADAPTER below). Seasons before tradesFrom only exist via leagueHistory.
+  wolfpack:  { id: 1656310, tradesFrom: 2018 },
+  standrews: { id: 845744,  tradesFrom: 2021 },
 };
 const ESPN_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
 const ESPN_POS  = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST" };
@@ -414,6 +418,277 @@ async function rosterTrades(env, league, season, txs, known) {
   return out;
 }
 
+// ── ESPN → SLEEPER ADAPTER ───────────────────────────────────────────────────
+// Lets an ESPN league run on the standard (Sleeper) page template unchanged: the page's
+// league id is `espn_{espnLeagueId}_{season}`, and every /api/league/:id/:resource it
+// calls comes back in Sleeper's shape. Owners are keyed by ESPN member id (stable across
+// seasons), rosters by ESPN team id, players by `e{espnPlayerId}`.
+//
+// Consolation games (WINNERS_/LOSERS_CONSOLATION_LADDER) are never emitted as matchups —
+// they don't count toward records, H2H, all-play or league records. Only the 3rd-place
+// award reads one, via the winners bracket.
+const ESPN_COUNTED_TIERS = new Set(["NONE", "WINNERS_BRACKET"]);
+
+function espnLeagueById(id) {
+  const e = Object.entries(ESPN_LEAGUES).find(([, l]) => String(l.id) === String(id));
+  return e ? { key: e[0], league: e[1] } : null;
+}
+
+// Season core: settings, teams, members, schedule — trimmed. Past seasons are kept in R2
+// for good; the current one refreshes on the KV ttl. Seasons the cookie owner wasn't a
+// member of are only readable through leagueHistory (no per-player box scores there).
+async function espnCore(env, key, league, season) {
+  const live  = season >= currentSeason();
+  const r2Key = `espn/${key}/core-${season}.json`;
+  const kvKey = `espncore:${key}:${season}`;
+  if (live) {
+    const c = await env.FF_CACHE.get(kvKey);
+    if (c) { try { return JSON.parse(c); } catch { /* refetch */ } }
+  } else {
+    const obj = await env.ESPN_DATA.get(r2Key);
+    if (obj) { try { return JSON.parse(await obj.text()); } catch { /* refetch */ } }
+  }
+
+  const views = "view=mSettings&view=mTeam&view=mMatchupScore&view=mStatus";
+  let d = null, history = false;
+  try {
+    d = await espnFetch(env, `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}?${views}`);
+  } catch {
+    const arr = await espnFetch(env, `${ESPN_BASE}/leagueHistory/${league.id}?seasonId=${season}&${views}`);
+    d = Array.isArray(arr) ? arr[0] : null;
+    history = true;
+  }
+  if (!d || !Array.isArray(d.teams) || !d.teams.length) throw new Error(`ESPN season ${season} unavailable`);
+
+  const ss   = d.settings?.scheduleSettings || {};
+  const side = s => s ? { teamId: s.teamId, pts: s.totalPoints || 0 } : null;
+  const core = {
+    season, history,
+    name: d.settings?.name || "",
+    regWeeks: ss.matchupPeriodCount || 14,
+    playoffTeams: ss.playoffTeamCount || 4,
+    matchupPeriods: ss.matchupPeriods || {},
+    members: (d.members || []).map(m => ({ id: m.id, displayName: m.displayName, firstName: m.firstName, lastName: m.lastName })),
+    teams: d.teams.map(t => ({
+      id: t.id, name: t.name || [t.location, t.nickname].filter(Boolean).join(" "),
+      primaryOwner: t.primaryOwner || null, divisionId: t.divisionId ?? 0,
+      record: t.record?.overall || {}, rankFinal: t.rankCalculatedFinal || 0,
+    })),
+    schedule: (d.schedule || []).map(m => ({
+      id: m.id, mp: m.matchupPeriodId, tier: m.playoffTierType || "NONE",
+      winner: m.winner || "UNDECIDED", home: side(m.home), away: side(m.away),
+    })),
+  };
+  const body = JSON.stringify(core);
+  if (live) await env.FF_CACHE.put(kvKey, body, { expirationTtl: getTTL() });
+  else await env.ESPN_DATA.put(r2Key, body, { httpMetadata: { contentType: "application/json" } }).catch(() => {});
+  return core;
+}
+
+const espnCap = s => String(s || "").trim().toLowerCase().replace(/(^|[\s'-])\w/g, c => c.toUpperCase());
+const espnUid = t => t.primaryOwner || `team${t.id}`;
+const espnDecided = m => m.winner === "HOME" || m.winner === "AWAY" || m.winner === "TIE";
+
+// Last matchup period whose counted games are all final (Sleeper's last_scored_leg)
+function espnScored(core) {
+  let scored = 0;
+  const maxMp = Math.max(0, ...core.schedule.map(m => m.mp));
+  for (let mp = 1; mp <= maxMp; mp++) {
+    const g = core.schedule.filter(m => m.mp === mp && ESPN_COUNTED_TIERS.has(m.tier));
+    if (!g.length || !g.every(espnDecided)) break;
+    scored = mp;
+  }
+  return scored;
+}
+
+function espnUsers(core) {
+  return core.teams.map(t => {
+    const m = core.members.find(x => x.id === t.primaryOwner);
+    const full = m ? `${espnCap(m.firstName)} ${espnCap(m.lastName)}`.trim() : "";
+    return {
+      user_id: espnUid(t),
+      display_name: full || m?.displayName || t.name || `Team ${t.id}`,
+      metadata: { team_name: t.name },
+      avatar: null,
+    };
+  });
+}
+
+function espnRosters(core) {
+  const divs = new Set(core.teams.map(t => t.divisionId)).size > 1;
+  // Regular-season PF/PA from the schedule — ESPN's record totals are sometimes 0 on old seasons
+  const pf = {}, pa = {};
+  core.schedule.forEach(m => {
+    if (m.tier !== "NONE" || !m.home || !m.away || !espnDecided(m)) return;
+    pf[m.home.teamId] = (pf[m.home.teamId] || 0) + m.home.pts;
+    pa[m.home.teamId] = (pa[m.home.teamId] || 0) + m.away.pts;
+    pf[m.away.teamId] = (pf[m.away.teamId] || 0) + m.away.pts;
+    pa[m.away.teamId] = (pa[m.away.teamId] || 0) + m.home.pts;
+  });
+  const split = v => { const c = Math.round((v || 0) * 100); return [Math.floor(c / 100), c % 100]; };
+  return core.teams.map(t => {
+    const [f, fd] = split(t.record.pointsFor || pf[t.id]);
+    const [a, ad] = split(t.record.pointsAgainst || pa[t.id]);
+    return {
+      roster_id: t.id, owner_id: espnUid(t),
+      settings: {
+        wins: t.record.wins || 0, losses: t.record.losses || 0, ties: t.record.ties || 0,
+        fpts: f, fpts_decimal: fd, fpts_against: a, fpts_against_decimal: ad,
+        ...(divs ? { division: t.divisionId + 1 } : {}),
+      },
+    };
+  });
+}
+
+// Sleeper-shaped winners bracket: final first in its round (p:1), then the 3rd-place game (p:3).
+function espnWinnersBracket(core) {
+  const wb  = core.schedule.filter(m => m.tier === "WINNERS_BRACKET" && m.home && m.away)
+    .sort((a, b) => a.mp - b.mp || a.id - b.id);
+  const mps = [...new Set(wb.map(m => m.mp))];
+  let n = 0;
+  const out = wb.map(m => {
+    const r = mps.indexOf(m.mp) + 1, t1 = m.home.teamId, t2 = m.away.teamId;
+    const w = m.winner === "HOME" ? t1 : m.winner === "AWAY" ? t2 : null;
+    return { m: ++n, r, t1, t2, w, l: w == null ? null : (w === t1 ? t2 : t1), ...(r === mps.length ? { p: 1 } : {}) };
+  });
+
+  // 3rd place — ESPN's final rank, only between two teams that actually made the bracket
+  const final = out.find(x => x.p === 1);
+  const inBracket = new Set(out.flatMap(x => [x.t1, x.t2]));
+  const third  = core.teams.find(t => t.rankFinal === 3)?.id;
+  const fourth = core.teams.find(t => t.rankFinal === 4)?.id;
+  if (final?.w != null && third != null && fourth != null && inBracket.has(third) && inBracket.has(fourth)) {
+    out.push({ m: ++n, r: final.r, t1: third, t2: fourth, w: third, l: fourth, p: 3 });
+  }
+  return out;
+}
+
+function espnInfo(core, lid) {
+  const final = espnWinnersBracket(core).find(x => x.p === 1);
+  const done  = core.season < currentSeason() || (final && final.w != null);
+  return {
+    league_id: lid, name: core.name, season: String(core.season),
+    status: done ? "complete" : "in_season",
+    total_rosters: core.teams.length,
+    settings: {
+      type: 0, num_teams: core.teams.length,
+      last_scored_leg: espnScored(core),
+      playoff_week_start: core.regWeeks + 1,
+      playoff_teams: core.playoffTeams,
+    },
+  };
+}
+
+// Per-player points for one matchup period ({teamId: {e{pid}: pts}}), summed over its scoring
+// periods (old 2-week playoff rounds). Feeds the Trade History PPG chips only.
+async function espnPlayerPoints(env, key, league, core, mp) {
+  if (core.history) return {};
+  const live  = core.season >= currentSeason();
+  if (live && mp > espnScored(core) + 1) return {};   // not played yet
+  const r2Key = `espn/${key}/pp-${core.season}-${mp}.json`;
+  const kvKey = `espnpp:${key}:${core.season}:${mp}`;
+  if (live) {
+    const c = await env.FF_CACHE.get(kvKey);
+    if (c) { try { return JSON.parse(c); } catch {} }
+  } else {
+    const obj = await env.ESPN_DATA.get(r2Key);
+    if (obj) { try { return JSON.parse(await obj.text()); } catch {} }
+  }
+
+  const sps = core.matchupPeriods[mp] || [mp];
+  const out = {};
+  for (const sp of sps) {
+    const d = await espnFetch(env,
+      `${ESPN_BASE}/seasons/${core.season}/segments/0/leagues/${league.id}?view=mBoxscore&scoringPeriodId=${sp}`);
+    (d.schedule || []).forEach(m => {
+      if (m.matchupPeriodId !== mp) return;
+      [m.home, m.away].forEach(s => {
+        (s?.rosterForCurrentScoringPeriod?.entries || []).forEach(e => {
+          const stats = e.playerPoolEntry?.player?.stats || [];
+          const line  = stats.find(x => x.statSourceId === 0 && x.scoringPeriodId === sp);
+          if (!line) return;
+          const team = (out[s.teamId] ||= {});
+          const pid  = `e${e.playerId}`;
+          team[pid] = Math.round(((team[pid] || 0) + (line.appliedTotal || 0)) * 100) / 100;
+        });
+      });
+    });
+  }
+  const body = JSON.stringify(out);
+  if (live) await env.FF_CACHE.put(kvKey, body, { expirationTtl: getTTL() });
+  else await env.ESPN_DATA.put(r2Key, body, { httpMetadata: { contentType: "application/json" } }).catch(() => {});
+  return out;
+}
+
+async function espnMatchups(env, key, league, core, mp) {
+  const games = core.schedule.filter(m => m.mp === mp && ESPN_COUNTED_TIERS.has(m.tier) && m.home);
+  if (!games.length) return [];
+  const pp = await espnPlayerPoints(env, key, league, core, mp).catch(e => {
+    console.warn(`ESPN player points ${key} ${core.season} mp${mp}:`, e.message);
+    return {};
+  });
+  // Old two-week playoff rounds: one game, but its score is two weeks' worth — flagged so
+  // the page keeps it out of single-game score records.
+  const weeks = (core.matchupPeriods[mp] || [mp]).length;
+  return games.flatMap((m, i) => [m.home, m.away].filter(Boolean).map(s => ({
+    roster_id: s.teamId,
+    matchup_id: m.away ? i + 1 : null,   // a bye has no opponent
+    points: s.pts,
+    players_points: pp[s.teamId] || {},
+    ...(weeks > 1 ? { weeks } : {}),
+  })));
+}
+
+// ESPN trades → Sleeper transactions. `_players` carries names for the `e{pid}` ids,
+// which the page merges into its player map.
+async function espnSleeperTrades(env, key, league, season) {
+  const trades = await getEspnTrades(env, key, league, season);
+  return trades.map(t => {
+    const adds = {}, drops = {}, players = {};
+    t.items.forEach(i => {
+      const pid = `e${i.playerId}`;
+      if (i.type === "TRADE") adds[pid] = i.to; else drops[pid] = i.from;
+      players[pid] = { full_name: i.name || `Player #${i.playerId}`, position: i.pos || "" };
+    });
+    return {
+      transaction_id: String(t.id), type: "trade", status: "complete",
+      roster_ids: t.teams, adds, drops, draft_picks: [],
+      status_updated: t.date || null, leg: t.week, _players: players,
+    };
+  });
+}
+
+async function handleEspnLeague(env, lid, espnId, season, resource, param) {
+  const hit = espnLeagueById(espnId);
+  if (!hit) return espnJson({ error: "Unknown ESPN league" }, 404);
+  const { key, league } = hit;
+  const maxAge = season >= currentSeason() ? 300 : 3600;
+  try {
+    if (resource === "draft")          return espnJson({ draft_order: {}, picks: [] }, 200, maxAge);
+    if (resource === "traded_picks"
+     || resource === "losers_bracket") return espnJson([], 200, maxAge);
+    if (resource === "trade-values")   return espnJson({}, 200, maxAge);
+    if (resource === "trades" || resource === "transactions") {
+      if (season < league.tradesFrom) return espnJson([], 200, maxAge);
+      return espnJson(await espnSleeperTrades(env, key, league, season), 200, maxAge);
+    }
+
+    const core = await espnCore(env, key, league, season);
+    if (resource === "rosters")         return espnJson(espnRosters(core), 200, maxAge);
+    if (resource === "users")           return espnJson(espnUsers(core), 200, maxAge);
+    if (resource === "winners_bracket") return espnJson(espnWinnersBracket(core), 200, maxAge);
+    if (resource === "info")            return espnJson(espnInfo(core, lid), 200, maxAge);
+    if (resource === "matchups" && param) {
+      const mp = parseInt(param, 10);
+      if (isNaN(mp) || mp < 1 || mp > 18) return espnJson({ error: "Invalid week" }, 400);
+      return espnJson(await espnMatchups(env, key, league, core, mp), 200, maxAge);
+    }
+    return espnJson({ error: "Unknown resource" }, 404);
+  } catch (e) {
+    return espnJson({ error: e.message }, 502);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -517,6 +792,10 @@ export default {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
+
+    // ── ESPN league on the standard template (espn_{id}_{season}) ──
+    const espnLid = /^espn_(\d+)_(\d{4})$/.exec(leagueId);
+    if (espnLid) return handleEspnLeague(env, leagueId, espnLid[1], Number(espnLid[2]), resource, param);
 
     const ttl = getTTL();
 

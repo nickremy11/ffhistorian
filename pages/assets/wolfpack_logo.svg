@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Wolfpack of 10">
+  <defs>
+    <linearGradient id="wp-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8b84b"/>
+      <stop offset="1" stop-color="#c9962a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="46" fill="#3a2a1e" stroke="url(#wp-gold)" stroke-width="4"/>
+  <circle cx="50" cy="50" r="36" fill="none" stroke="#c9962a" stroke-width="1.5" stroke-dasharray="2 4" opacity="0.65"/>
+  <!-- wolf head: ears, brow, muzzle -->
+  <polygon points="30,22 40,40 60,40 70,22 66,46 74,56 56,78 50,82 44,78 26,56 34,46"
+           fill="url(#wp-gold)" stroke="#2a1a0e" stroke-width="1.5" stroke-linejoin="round"/>
+  <polygon points="40,52 47,55 40,57" fill="#2a1a0e"/>
+  <polygon points="60,52 53,55 60,57" fill="#2a1a0e"/>
+  <polygon points="45,68 55,68 50,74" fill="#2a1a0e"/>
+  <text x="50" y="94" text-anchor="middle" font-family="Georgia, serif" font-size="9" font-weight="700" fill="#f5ead6">X</text>
+</svg>

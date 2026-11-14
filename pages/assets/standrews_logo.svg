@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="St. Andrew's Partments">
+  <defs>
+    <linearGradient id="sa-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8b84b"/>
+      <stop offset="1" stop-color="#c9962a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="46" fill="#1e2f4a" stroke="url(#sa-gold)" stroke-width="4"/>
+  <circle cx="50" cy="50" r="36" fill="none" stroke="#c9962a" stroke-width="1.5" stroke-dasharray="2 4" opacity="0.65"/>
+  <!-- St. Andrew's saltire -->
+  <path d="M28,24 L50,44 L72,24 L76,28 L56,50 L76,72 L72,76 L50,56 L28,76 L24,72 L44,50 L24,28 Z"
+        fill="url(#sa-gold)" stroke="#2a1a0e" stroke-width="1.5" stroke-linejoin="round"/>
+  <circle cx="50" cy="50" r="5" fill="#f5ead6" stroke="#2a1a0e" stroke-width="1.5"/>
+</svg>

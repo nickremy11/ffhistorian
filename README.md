@@ -100,6 +100,36 @@ pick trades resolve to the drafted player in the Trade History tab.
 
 ---
 
+## Carolina Sickos
+
+Dynasty league (`/sickos`). Started on Sleeper in 2026 — no earlier seasons exist.
+
+| Season | League ID |
+|---|---|
+| 2026 | 1350954271008358400 (startup draft 1350954272145027072) |
+
+---
+
+## ESPN leagues on the standard template (`/wolfpack`, `/standrews`)
+
+Wolfpack of 10 (ESPN `1656310`) and St. Andrew's Partments (ESPN `845744`), 2018 →. These use
+the standard (Sleeper) redraft page, not the Elite FFL page: the worker serves each ESPN season
+in Sleeper's shape under `/api/league/espn_{espnId}_{season}/…` (`handleEspnLeague`, the
+"ESPN → SLEEPER ADAPTER" block in `worker/src/index.js`). To add another ESPN league, register it
+in `ESPN_LEAGUES`, copy `pages/wolfpack/index.html` and change `LEAGUE_CONFIG`.
+
+- Owners are ESPN member ids, shown as first + last name; rosters are ESPN team ids; players `e{espnId}`.
+- **Consolation games don't count**: only regular-season and winners-bracket games become matchups.
+  3rd place comes from ESPN's final rank.
+- Wolfpack's 2018–2020 playoff rounds were two-week matchups: one game for W/L, kept out of the
+  single-game score records (`weeks` on the matchup row).
+- St. Andrew's 2018–2020 only exist via ESPN's `leagueHistory` (the cookie owner wasn't a member):
+  no player box scores (no PPG chips) and no trades for those years (`tradesFrom: 2021`).
+- Past seasons are stored once in R2 (`espn/{key}/core-{season}.json`, `pp-{season}-{week}.json`);
+  the current season refreshes on the KV ttl. Needs the same `ESPN_S2`/`ESPN_SWID` secrets.
+
+---
+
 ## Elite FFL (ESPN) — live current season
 
 Past seasons are served from the R2 archive (`espn/eliteffl/{year}.json`, written by
