@@ -1,6 +1,6 @@
 /* FF Historian — shared league page styles (every /{slug}/ page). */
 :root {
-  --page-max: 1800px;                        /* wide monitors: use the room */
+  --page-max: 1100px;                        /* the page column; wide tables can break out of it */
   --gutter: clamp(12px, 2.5vw, 32px);
   --cream: #f5ead6;
   --parchment: #e8d5b0;
@@ -26,7 +26,7 @@ body::before {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.3;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
 }
-.page-wrap { position: relative; z-index: 1; }
+.page-wrap { position: relative; z-index: 1; container-type: inline-size; }   /* 100cqw = usable screen width */
 
 /* ── BANNER ── */
 .banner {
@@ -283,9 +283,18 @@ body::before {
 .records-val { font-family: 'Playfair Display', serif; font-weight: 700; color: var(--brown-dark); white-space: nowrap; }
 
 /* ── SORTABLE TABLES ──
-   Every table fits the screen: no sideways scroll. Text and padding scale with the
-   viewport, headers wrap, the owner column wraps, and on narrow screens the least
-   important columns drop out (.col-sec under 900px, .col-ter under 560px). */
+   Every table fits the screen: no sideways scroll.
+   Width: a table fills the normal page column, and only grows past it when its columns
+   don't fit at their natural size — then up to the full screen width (centred), never
+   wider. A table that fits normally looks exactly as it always did.
+   Beyond that, text and padding scale with the viewport, headers wrap, the owner
+   column wraps, and on narrow screens the least important columns drop out
+   (.col-sec under 900px, .col-ter under 560px). */
+.standings-wrap {
+  width: max-content; min-width: 100%;
+  max-width: calc(100cqw - 2 * var(--gutter));
+  position: relative; left: 50%; transform: translateX(-50%);
+}
 .standings-table { width: 100%; font-size: clamp(0.74rem, 0.62rem + 0.3vw, 0.95rem); }
 .standings-table td { font-size: inherit; }
 .standings-table th, .standings-table td { padding: 7px clamp(3px, 0.55vw, 10px); }

@@ -488,17 +488,19 @@ function rcTeamTable(rows, m) {
       <td class="rc-pos">${t.standing}</td>
       <td class="rc-owner"><span class="rc-owner-name">${rcEsc(t.owner)}</span>${rcTag(t, m)}
         ${t.team && t.team !== t.owner ? `<span class="rc-team">${rcEsc(t.team)}</span>` : ""}</td>
-      <td>${rcRec(t.h2h)}</td>
-      <td>${rcRec(t.withMed)}</td>
-      <td>${rcRec(t.ap)}</td>
+      ${m.median
+        // Median league: the median game counts in the standings, so the record WITH it is
+        // the record; head-to-head alone and all-play ride along in parentheses.
+        ? `<td class="rc-rec">${rcRec(t.withMed)} <span class="rc-rec-sub">(${rcRec(t.h2h)} w/o median · ${rcRec(t.ap)} all-play)</span></td>`
+        : `<td>${rcRec(t.h2h)}</td><td>${rcRec(t.withMed)}</td><td>${rcRec(t.ap)}</td>`}
       <td>${rcPts(t.pf)}</td>
       <td class="rc-odds">${rcPct(t.odds, t)}</td>
     </tr>`).join("");
   return `<div class="standings-wrap"><table class="standings-table rc-table">
-    <thead><tr><th>#</th><th>Owner</th><th>Record</th><th title="${m.median
-      ? "Head-to-head plus the weekly game against the league median (counts in the standings)"
-      : "Head-to-head plus a game against the league median each week (doesn't count in this league)"}">w/ Median</th>
-      <th title="Record if you played every team every week">All-Play</th><th>PF</th><th>Playoff %</th></tr></thead>
+    <thead><tr><th>#</th><th>Owner</th>${m.median
+      ? `<th title="Head-to-head plus the weekly game against the league median — what the standings count. In parentheses: head-to-head only, and all-play (every team, every week)">Record</th>`
+      : `<th>Record</th><th title="Head-to-head plus a game against the league median each week (doesn't count in this league)">w/ Median</th>
+      <th title="Record if you played every team every week">All-Play</th>`}<th>PF</th><th>Playoff %</th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
 }
 
@@ -552,7 +554,10 @@ function rcHtml(m) {
 }
 
 function rcText(m) {
-  const line = t => `${t.standing}. ${t.owner} — ${rcRec(t.h2h)} (w/ med ${rcRec(t.withMed)}, AP ${rcRec(t.ap)}) · ${rcPts(t.pf)} PF · ${rcPct(t.odds, t)}`
+  const rec = t => m.median
+    ? `${rcRec(t.withMed)} (w/o med ${rcRec(t.h2h)}, AP ${rcRec(t.ap)})`
+    : `${rcRec(t.h2h)} (w/ med ${rcRec(t.withMed)}, AP ${rcRec(t.ap)})`;
+  const line = t => `${t.standing}. ${t.owner} — ${rec(t)} · ${rcPts(t.pf)} PF · ${rcPct(t.odds, t)}`
     + (m.gamesLeft > 0 && t.bye ? " · CLINCHED BYE" : m.gamesLeft > 0 && t.playoff ? " · CLINCHED" : "");
   const block = (title, rows) => rows.length ? [`${title}`, ...rows.map(line), ""] : [];
   const out = [
@@ -590,6 +595,7 @@ const RC_CSS = `
   .standings-table td.rc-pos { min-width: 0; width: 52px; font-family: 'Rye', serif; font-size: 0.75rem; color: var(--gold-light); }
   .standings-table td.rc-owner { min-width: 170px; max-width: 280px; white-space: normal; }
   .rc-owner-name { font-family: 'Playfair Display', serif; font-weight: 700; color: var(--cream); }
+  .rc-rec-sub { font-size: 0.82em; opacity: 0.65; white-space: nowrap; }
   .rc-team, .rc-via { display: block; font-size: 0.82rem; color: var(--parchment); opacity: 0.6; font-style: italic; }
   .rc-via { opacity: 0.85; color: var(--gold-light); }
   .rc-odds { color: var(--gold-light) !important; font-weight: 600; }
@@ -601,6 +607,8 @@ const RC_CSS = `
   .rc-note { margin-top: 10px; font-family: 'Crimson Text', serif; font-size: 0.85rem; font-style: italic; color: var(--brown-light); }
   @media (max-width: 600px) {
     .standings-table td.rc-pos { width: 34px; }
+    .standings-table td.rc-rec { white-space: normal; }
+    .rc-rec-sub { display: block; white-space: normal; }
     .standings-table td.rc-owner { min-width: 120px; }
     .rc-tag { margin-left: 0; margin-top: 2px; }
   }

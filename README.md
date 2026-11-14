@@ -80,8 +80,9 @@ What varies per league lives in its entry (documented at the top of `leagues.js`
 doesn't care), `format` (`dynasty` → FantasyCalc trade market; `redraft` → in-league PPG),
 season and draft ids, `hasDivisions`, `ownershipMerges`, `teamNameAliases`.
 
-Tables fit the screen with no sideways scroll: the page uses the monitor's width (up to
-1800px), text scales with the viewport, and on narrow screens the least important
+Tables fit the screen with no sideways scroll: a table fills the normal 1100px page column
+and only grows past it when its columns don't fit there — up to the full screen width,
+never wider. Text scales with the viewport, and on narrow screens the least important
 standings columns drop out (`tier: "sec"` under 900px, `"ter"` under 560px in the
 `cols` list in `renderStandings`).
 
