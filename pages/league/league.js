@@ -850,12 +850,17 @@ function renderStandings(year, sortCol, sortDir) {
       if (thirdMatch?.w) yearThird[yr] = canonicalUserId(sd.rosterUserMap[thirdMatch.w]);
     }
 
+    // A median league (settings.league_average_match === 1) banks TWO results a
+    // week — the opponent and the league median — so W+L+T is twice the games
+    // actually played. PF/PA cover one score a week; divide by real games.
+    const medianLeague = Number(sd.leagueInfo?.settings?.league_average_match) === 1;
+
     sd.rosters.forEach(r => {
       const rawUid = r.owner_id;
       if (!rawUid) return;
       const uid = canonicalUserId(rawUid);
       if (!records[uid]) records[uid] = {
-        wins: 0, losses: 0, ties: 0, pf: 0, pa: 0,
+        wins: 0, losses: 0, ties: 0, pf: 0, pa: 0, gp: 0,
         championships: 0, runnerUps: 0, thirdPlaces: 0,
         divTitles: 0, finalsApps: 0,
         playoffApps: 0,
@@ -864,6 +869,8 @@ function renderStandings(year, sortCol, sortDir) {
       records[uid].wins   += (r.settings?.wins || 0);
       records[uid].losses += (r.settings?.losses || 0);
       records[uid].ties   += (r.settings?.ties || 0);
+      const results = (r.settings?.wins || 0) + (r.settings?.losses || 0) + (r.settings?.ties || 0);
+      records[uid].gp += medianLeague ? results / 2 : results;
       const pf = (r.settings?.fpts || 0) + (r.settings?.fpts_decimal || 0) / 100;
       const pa = (r.settings?.fpts_against || 0) + (r.settings?.fpts_against_decimal || 0) / 100;
       records[uid].pf += pf;
@@ -934,7 +941,7 @@ function renderStandings(year, sortCol, sortDir) {
     rec.apPct = a.w / apTotal;
     rec.wpPct = (rec.wins + rec.ties / 2) / total;   // a tie is half a win
     rec.diff  = rec.wpPct - rec.apPct; // positive = overachiever
-    const gp = rec.wins + rec.losses + rec.ties; // regular-season games — what PF/PA cover
+    const gp = rec.gp; // regular-season games played (median results not counted) — what PF/PA cover
     rec.pfpg = gp ? rec.pf / gp : 0;
     rec.papg = gp ? rec.pa / gp : 0;
   });
