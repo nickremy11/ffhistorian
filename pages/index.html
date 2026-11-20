@@ -268,6 +268,32 @@
     }
     footer a:hover { text-decoration: underline; }
 
+
+    /* ── ANY SLEEPER LEAGUE ── */
+    .auth-corner { position: absolute; top: 14px; right: 18px; z-index: 2; }
+    .finder {
+      max-width: 720px; margin: 0 auto 44px; padding: 22px 24px;
+      background: var(--parchment); border: 2px solid var(--brown-light);
+      box-shadow: 4px 4px 0 var(--brown-mid);
+    }
+    .finder p { color: var(--brown-mid); margin-bottom: 12px; text-align: center; }
+    .finder-row { display: flex; gap: 10px; }
+    .finder-row input {
+      flex: 1; min-width: 0; padding: 10px 12px; font: inherit; font-size: 1rem;
+      border: 2px solid var(--brown-light); background: var(--cream); color: var(--ink);
+    }
+    .finder-btn {
+      padding: 10px 18px; cursor: pointer; font-family: 'Rye', serif; font-size: 0.7rem;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--cream); background: var(--green); border: 2px solid var(--gold);
+    }
+    .finder-btn:hover { background: var(--green-light); }
+    .finder-msg { min-height: 1.2em; margin-top: 8px; text-align: center; color: var(--red); font-style: italic; }
+    .mine-grid { margin-bottom: 48px; }
+    .mine-note { text-align: center; color: var(--brown-light); font-style: italic; margin-bottom: 40px; }
+    .mine-note a { color: var(--brown-mid); }
+    .card-logo-bar .emoji { font-size: 2.4rem; }
+
     /* ── ANIMATIONS ── */
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(20px); }
@@ -282,6 +308,7 @@
 <body>
   <!-- BANNER -->
   <header class="banner">
+    <div class="auth-corner" id="auth-chip"></div>
     <div class="banner-inner">
       <p class="banner-eyebrow">Est. by the Gridiron Faithful</p>
       <h1>Welcome to the<br/><span>FF Historian</span></h1>
@@ -294,6 +321,21 @@
 
   <!-- MAIN -->
   <main class="main">
+    <p class="section-label">Open Any Sleeper League</p>
+    <div class="finder">
+      <p id="finderHint">Paste a Sleeper league ID or league link to open its history book.</p>
+      <div class="finder-row">
+        <input id="finderInput" placeholder="e.g. 1180232430068178944 or sleeper.com/leagues/…" autocomplete="off"/>
+        <button class="finder-btn" onclick="openLeagueFromInput()">Open</button>
+      </div>
+      <div class="finder-msg" id="finderMsg"></div>
+    </div>
+
+    <div id="mineWrap" hidden>
+      <p class="section-label">Your Sleeper Leagues</p>
+      <div id="mineBody"></div>
+    </div>
+
     <p class="section-label">Select Your League</p>
 
     <!-- Cards come from /league/leagues.js — add a league there, not here. -->
@@ -305,6 +347,7 @@
   </footer>
 
 </div>
+<script src="https://helper.ffhistorian.com/shared-auth.js"></script>
 <script src="/league/leagues.js"></script>
 <script>
   // League cards, in LEAGUES order: "League I", "League II", …
@@ -323,6 +366,77 @@
         </div>
         <div class="card-arrow">→</div>
       </a>`).join("");
+  })();
+</script>
+
+<script>
+  // ── Any Sleeper league → /l/{id} (worker builds its config; see worker/src/history.js).
+  // Opening a league the first time needs an account; the /l/{id} link is then public.
+  const escH = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // A curated league opens on its own page, whichever season's id was given
+  function leagueHref(id) {
+    const c = LEAGUES.find(l => Object.values(l.seasons || {}).map(String).includes(String(id)));
+    return c ? `/${c.slug}/` : `/l/${id}`;
+  }
+
+  function openLeagueFromInput() {
+    const raw = document.getElementById("finderInput").value.trim();
+    const m = raw.match(/\d{6,25}/);
+    const msg = document.getElementById("finderMsg");
+    if (!m) { msg.textContent = "That doesn't look like a Sleeper league ID."; return; }
+    // Signed out still goes: an already-opened league works for anyone, and the
+    // league page asks for sign-in if this one is new.
+    location.href = leagueHref(m[0]);
+  }
+  document.getElementById("finderInput").addEventListener("keydown", e => { if (e.key === "Enter") openLeagueFromInput(); });
+
+  async function loadMine() {
+    const wrap = document.getElementById("mineWrap"), body = document.getElementById("mineBody");
+    wrap.hidden = false;
+    body.innerHTML = `<p class="mine-note">Reading your leagues from Sleeper…</p>`;
+    let d;
+    try {
+      const r = await fetch("/api/history/mine", { credentials: "include" });
+      d = await r.json();
+      if (!r.ok) throw new Error(d.error || r.status);
+    } catch (e) {
+      body.innerHTML = `<p class="mine-note">Couldn't load your leagues (${escH(e.message)}).</p>`; return;
+    }
+    if (d.noUsername || d.badUsername) {
+      body.innerHTML = `<p class="mine-note">${d.badUsername ? `Sleeper doesn't know the username “${escH(d.badUsername)}”.` : "No Sleeper username on your account."}
+        Set it on <a href="https://helper.ffhistorian.com/myprofile">your profile</a> to list your leagues here.</p>`;
+      return;
+    }
+    if (!d.leagues.length) { body.innerHTML = `<p class="mine-note">No Sleeper leagues this season.</p>`; return; }
+    d.leagues.sort((a, b) => a.name.localeCompare(b.name));
+    body.innerHTML = `<div class="league-grid mine-grid">${d.leagues.map(l => {
+      const kind = [l.dynasty ? "Dynasty" : "Redraft", l.best_ball ? "Best Ball" : "", `${l.teams} teams`].filter(Boolean).join(" · ");
+      const logo = l.avatar
+        ? `<img src="https://sleepercdn.com/avatars/thumbs/${escH(l.avatar)}" alt="" onerror="this.replaceWith(document.createTextNode('🏈'))"/>`
+        : `<span class="emoji">🏈</span>`;
+      return `<a class="league-card" href="${leagueHref(l.league_id)}">
+        <div class="card-logo-bar">${logo}</div>
+        <div class="card-body">
+          <p class="card-number">${escH(l.season)}${l.opened ? " · in the archive" : ""}</p>
+          <p class="card-name">${escH(l.name)}</p>
+          <span class="card-platform">${escH(kind)}</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>`;
+    }).join("")}</div>`;
+  }
+
+  (async function () {
+    const hint = document.getElementById("finderHint");
+    const onIn = () => { hint.textContent = "Paste a Sleeper league ID or league link to open its history book."; loadMine(); };
+    const onOut = () => {
+      hint.innerHTML = `Paste a Sleeper league ID or link. Opening a new league needs an account — <a href="#" onclick="SharedAuth.openModal();return false;">sign in</a>; the link it makes works for anyone.`;
+      document.getElementById("mineWrap").hidden = true;
+    };
+    if (!window.SharedAuth) return;
+    const user = await SharedAuth.init({ chipContainerId: "auth-chip", onLogin: onIn, onLogout: onOut });
+    user ? onIn() : onOut();
   })();
 </script>
 </body>

@@ -1,0 +1,2 @@
+# Any Sleeper league: /l/{leagueId} renders the shared league page (league/league.js)
+/l/:id  /l/  200

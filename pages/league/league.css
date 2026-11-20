@@ -334,3 +334,22 @@ footer a { color: var(--brown-mid); text-decoration: none; }
   .vs-label, .lookup-btn { padding-top: 0; margin-top: 0; }
   .h2h-stats-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── /l/{id}: generated leagues ── */
+.banner-emoji { display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+.share-btn {
+  margin-top: 12px; padding: 6px 14px; cursor: pointer;
+  font-family: 'Rye', serif; font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--brown-dark); background: var(--gold-light); border: 2px solid var(--gold); border-radius: 2px;
+}
+.share-btn:hover { background: var(--gold); }
+.error-msg.gate { color: var(--ink); font-style: normal; max-width: 560px; margin: 60px auto; }
+.error-msg.gate p { margin: 10px 0; }
+.gate-btn {
+  padding: 8px 22px; cursor: pointer; font-family: 'Rye', serif; font-size: 0.75rem; letter-spacing: 0.15em;
+  color: var(--cream); background: var(--green); border: 2px solid var(--gold); border-radius: 2px;
+}
+.link-tag {
+  margin-left: 6px; padding: 0 5px; font-size: 0.72em; white-space: nowrap;
+  color: var(--parchment); border: 1px dashed var(--gold); border-radius: 2px; cursor: help; opacity: 0.85;
+}

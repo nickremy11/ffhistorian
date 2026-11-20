@@ -13,3 +13,13 @@ id = "c8fa6169e99b4202a9aa6441e0a39aba"
 [[r2_buckets]]
 bucket_name = "ff-historian-espn"
 binding = "ESPN_DATA"
+# Shared with sleeper-helper: read-only session lookup for /api/history/* (history.js).
+# Sign-in itself happens on helper.ffhistorian.com; the sh_session cookie is .ffhistorian.com.
+[[d1_databases]]
+binding       = "DB"
+database_name = "sleeper-helper-db"
+database_id   = "7b094e00-d010-43a8-8f1a-047e72901cd8"
+
+# Daily FantasyCalc snapshot → R2 fc-snapshots/YYYY-MM-DD.json (day-of trade values).
+[triggers]
+crons = ["15 11 * * *"]

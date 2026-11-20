@@ -10,7 +10,11 @@
  *          /api/league/:leagueId/traded_picks
  *          /api/projections/:season/:week ← Sleeper weekly projections (Recap tab)
  *          /api/espn/:key/recap/:season   ← ESPN settings + rosters + schedule (Recap tab)
+ *          /api/history/config/:leagueId  ← generated league config for /l/{id} (history.js)
+ *          /api/history/mine              ← signed-in user's Sleeper leagues
  */
+
+import { handleHistory } from "./history.js";
 
 const SLEEPER_BASE = "https://api.sleeper.app/v1";
 
@@ -35,8 +39,9 @@ function getTTL() {
 }
 
 // ── TRADE MARKET (FantasyCalc "then vs now") ─────────────────────────────────
-// Day-of trade values. Trades on/after FC_CUTOFF freeze live FantasyCalc values
-// (lazily, on first read); earlier trades are backfilled from DynastyProcess by
+// Day-of trade values. Trades on/after FC_CUTOFF are frozen (lazily, on first read)
+// from the daily FantasyCalc snapshot of the trade's own day — see takeFcSnapshot;
+// earlier trades are backfilled from DynastyProcess by
 // scripts/backfill_trade_values.py. Both write the same trade-values/{lid}.json
 // shape into R2 (ESPN_DATA bucket).
 const FC_URL       = "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&ppr=1&includePickValues=true";
@@ -55,7 +60,12 @@ async function getFcMaps(env) {
   }
   let arr;
   try { arr = JSON.parse(raw); } catch { return null; }
+  return parseFcValues(arr);
+}
 
+// FantasyCalc's array → { players, picks }. Shared by the live map and the snapshots.
+function parseFcValues(arr) {
+  if (!Array.isArray(arr)) return null;
   const players = {};
   const picks   = {};
   for (const item of arr) {
@@ -85,6 +95,40 @@ async function getFcMaps(env) {
     }
   }
   return { players, picks };
+}
+
+// ── Daily FantasyCalc snapshots (R2 fc-snapshots/YYYY-MM-DD.json, ~5–15 KB each) ──
+// Taken by the cron (wrangler.toml [triggers]). A trade is valued from the snapshot
+// of its own day (or up to SNAP_LOOKBACK_DAYS before), so a league opened months
+// later still gets day-of values instead of "today's value at first read".
+const FC_SNAP_PREFIX     = "fc-snapshots/";
+const SNAP_LOOKBACK_DAYS = 3;
+const dayKey = ms => new Date(ms).toISOString().slice(0, 10);
+
+async function takeFcSnapshot(env) {
+  const key = FC_SNAP_PREFIX + dayKey(Date.now()) + ".json";
+  if (await env.ESPN_DATA.head(key)) return { key, skipped: true };
+  const res = await fetch(FC_URL, { headers: { "User-Agent": "ffhistorian/1.0" } });
+  if (!res.ok) throw new Error(`FantasyCalc ${res.status}`);
+  const raw = await res.text();
+  const maps = parseFcValues(JSON.parse(raw));
+  if (!maps || Object.keys(maps.players).length < 100) throw new Error("FantasyCalc returned too few values");
+  await env.ESPN_DATA.put(key, JSON.stringify(maps), { httpMetadata: { contentType: "application/json" } });
+  await env.FF_CACHE.put(FC_CACHE_KEY, raw, { expirationTtl: FC_TTL }); // live map gets fresh too
+  return { key, players: Object.keys(maps.players).length };
+}
+
+// The snapshot on `day` or the closest one before it (within the lookback), or null.
+async function fcSnapshotFor(env, day, memo) {
+  if (day in memo) return memo[day];
+  let found = null;
+  const t = Date.parse(day + "T00:00:00Z");
+  for (let i = 0; i <= SNAP_LOOKBACK_DAYS && !found; i++) {
+    const d = dayKey(t - i * 864e5);
+    const obj = await env.ESPN_DATA.get(FC_SNAP_PREFIX + d + ".json");
+    if (obj) { try { found = { date: d, maps: JSON.parse(await obj.text()) }; } catch { /* skip bad file */ } }
+  }
+  return (memo[day] = found);
 }
 
 // Generic (slot-unknown) pick value — used at freeze time before a draft happens
@@ -690,6 +734,11 @@ async function handleEspnLeague(env, lid, espnId, season, resource, param) {
 }
 
 export default {
+  // Daily FantasyCalc snapshot (cron in wrangler.toml)
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(takeFcSnapshot(env).catch(e => console.error("fc snapshot:", e.message)));
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname; // e.g. /api/league/123/rosters
@@ -704,6 +753,9 @@ export default {
         },
       });
     }
+
+    // ── HISTORY FOR ANY SLEEPER LEAGUE (/l/{id} pages) — see history.js ──
+    if (path.startsWith("/api/history/")) return handleHistory(request, env, path);
 
     // Only handle /api/league/..., /api/players, /api/projections/..., or /api/espn/...
     if (!path.startsWith("/api/league/") && path !== "/api/players"
@@ -1005,20 +1057,34 @@ export default {
       );
 
       if (toFreeze.length) {
-        const fc = await getFcMaps(env);
-        if (fc) {
-          const asOf = new Date().toISOString().slice(0, 10);
-          for (const tx of toFreeze) {
-            const rec = { source: "FC", asOf, frozenAt: Date.now(), players: {}, picks: {} };
-            for (const pid of Object.keys(tx.adds || {})) {
-              rec.players[pid] = fc.players[pid] || 0;
-            }
-            for (const p of (tx.draft_picks || [])) {
-              rec.picks[`${p.season}:${p.round}:${p.roster_id}`] =
-                genericPickValue(p.season, p.round, fc.picks);
-            }
-            frozen[tx.transaction_id] = rec;
+        // Each trade from the snapshot of its own day. No snapshot that close (a trade
+        // from before snapshots began) → left unfrozen: no day-of value rather than a
+        // wrong one, and still open to a later backfill. A trade from the last few days
+        // with no snapshot yet (cron hasn't run) uses the live values.
+        const memo = {};
+        let live;
+        let changed = false;
+        for (const tx of toFreeze) {
+          const ts = tx.status_updated || 0;
+          let snap = await fcSnapshotFor(env, dayKey(ts), memo);
+          if (!snap && Date.now() - ts < SNAP_LOOKBACK_DAYS * 864e5) {
+            if (live === undefined) live = await getFcMaps(env);
+            if (live) snap = { date: dayKey(Date.now()), maps: live };
           }
+          if (!snap) continue;
+          const fc = snap.maps;
+          const rec = { source: "FC", asOf: snap.date, frozenAt: Date.now(), players: {}, picks: {} };
+          for (const pid of Object.keys(tx.adds || {})) {
+            rec.players[pid] = fc.players[pid] || 0;
+          }
+          for (const p of (tx.draft_picks || [])) {
+            rec.picks[`${p.season}:${p.round}:${p.roster_id}`] =
+              genericPickValue(p.season, p.round, fc.picks);
+          }
+          frozen[tx.transaction_id] = rec;
+          changed = true;
+        }
+        if (changed) {
           try {
             await env.ESPN_DATA.put(r2Key, JSON.stringify(frozen), {
               httpMetadata: { contentType: "application/json" },

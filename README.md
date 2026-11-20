@@ -86,6 +86,46 @@ never wider. Text scales with the viewport, and on narrow screens the least impo
 standings columns drop out (`tier: "sec"` under 900px, `"ter"` under 560px in the
 `cols` list in `renderStandings`).
 
+## Any Sleeper league — `/l/{leagueId}`
+
+The same league page, for any Sleeper league, with no `leagues.js` entry. `pages/l/index.html`
+is the stub and `_redirects` rewrites every `/l/:id` to it; `league.js` sees the `/l/` path and
+asks the worker for a config instead of looking in `LEAGUES`.
+
+- **Config from Sleeper** (`worker/src/history.js`, `GET /api/history/config/{id}`): any season's
+  league id works. Seasons come from walking `previous_league_id` back and finding the renewal
+  forward (a member's leagues next season whose `previous_league_id` is ours); draft ids per season
+  (a dynasty's first-season draft of 11+ rounds is a startup and left out); dynasty = `settings.type`
+  2; divisions = `settings.divisions`. Checked against every curated Sleeper entry: seasons, format
+  and divisions all match.
+- **Takeovers are linked, not merged** (`franchiseLinks`, dynasty only): a roster_id whose owner
+  changes between seasons, where the old owner is gone and the new one wasn't there before (an
+  orphan takeover). Both owners keep separate records; Standings tags them "↩ took over from X '24"
+  / "↪ X took over '24". Redraft leagues get none — a redraft roster is emptied every year.
+  (Curated leagues still use hand-written `ownershipMerges`, which DO merge.)
+- **Sign-in to open, public to view.** The first open of a league needs an account (the helper's
+  `sh_session` cookie, checked against the shared `sleeper-helper-db` D1 — the `DB` binding). That
+  registers it in KV (`hist:cfg:{rootId}`, `hist:alias:{seasonId}`, no ttl; `rootId` = oldest
+  season's id) and after that the link works for anyone. The link shown and copied uses the
+  **newest** season's id (`shareId`), so it follows the league when it renews; every older
+  season's id keeps resolving, so last year's link still opens it.
+  The config is re-read from Sleeper every 6h in season / 24h off, by any visitor; a failed
+  rebuild keeps the last good one.
+- **A curated league always wins**: any of its season ids on `/l/` redirects to `/{slug}/`.
+- **Landing page**: paste a league id or sleeper.com link; signed in, "Your Sleeper leagues"
+  (`GET /api/history/mine`, from the account's Sleeper username, one card per league chain).
+- Generated pages show **🔗 Copy share link**. No logos/aliases beyond what Sleeper has (league avatar).
+
+## Day-of trade values — daily FantasyCalc snapshots
+
+A cron (`[triggers]` in `worker/wrangler.toml`, 11:15 UTC) saves FantasyCalc's dynasty values to
+R2 as `fc-snapshots/YYYY-MM-DD.json` (~5 KB/day, ~2 MB/year). A trade is frozen from the snapshot
+of its own day, or the closest one up to 3 days before. A trade with no snapshot that close (from
+before snapshots began) gets **no** day-of value rather than a wrong one, and stays open to a later
+backfill; a trade from the last 3 days with no snapshot yet uses the live values. Trades before
+2026-07-01 still come from the DynastyProcess backfill script. Run a snapshot by hand locally with
+`wrangler dev --test-scheduled` and `curl "localhost:8787/__scheduled"`.
+
 ## Adding a New League
 
 1. Add an entry to `pages/league/leagues.js` (the landing card comes from it)
