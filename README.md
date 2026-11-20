@@ -98,9 +98,10 @@ asks the worker for a config instead of looking in `LEAGUES`.
   (a dynasty's first-season draft of 11+ rounds is a startup and left out); dynasty = `settings.type`
   2; divisions = `settings.divisions`. Checked against every curated Sleeper entry: seasons, format
   and divisions all match.
-- **Takeovers are linked, not merged** (`franchiseLinks`, dynasty only): a roster_id whose owner
-  changes between seasons, where the old owner is gone and the new one wasn't there before (an
-  orphan takeover). Both owners keep separate records; Standings tags them "↩ took over from X '24"
+- **Takeovers are linked, not merged** (`franchiseLinks`, dynasty only): a roster_id that gets a
+  new owner links to that roster's LAST real owner, even across seasons it sat ownerless. Only a
+  clean hand-over: the new owner never owned/co-owned a roster here before, and the old owner holds
+  no other roster that season. Both owners keep separate records; Standings tags them "↩ took over from X '24"
   / "↪ X took over '24". Redraft leagues get none — a redraft roster is emptied every year.
   (Curated leagues still use hand-written `ownershipMerges`, which DO merge.)
 - **Sign-in to open, public to view.** The first open of a league needs an account (the helper's
@@ -111,6 +112,8 @@ asks the worker for a config instead of looking in `LEAGUES`.
   season's id keeps resolving, so last year's link still opens it.
   The config is re-read from Sleeper every 6h in season / 24h off, by any visitor; a failed
   rebuild keeps the last good one.
+- **`*` marks current members** on Standings (every league page, curated too): owners or co-owners
+  of a roster in the newest season.
 - **A curated league always wins**: any of its season ids on `/l/` redirects to `/{slug}/`.
 - **Landing page**: paste a league id or sleeper.com link; signed in, "Your Sleeper leagues"
   (`GET /api/history/mine`, from the account's Sleeper username, one card per league chain).

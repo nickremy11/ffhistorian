@@ -109,26 +109,28 @@ async function findRenewal(lg) {
 }
 
 // ── Owner changes on one roster → franchiseLinks ─────────────────────────────
-// A clean hand-over only: the old owner is gone from the later season and the new
-// owner wasn't in the earlier one (an orphan takeover). A swap between two existing
-// owners, or a co-owner, is left alone. The owners stay SEPARATE in every record —
-// the page only labels the link ("took over from …").
+// A roster_id that gets a new owner is a takeover of that roster's LAST real owner —
+// even when the roster sat ownerless for a season or more in between (an orphan
+// nobody picked up straight away). Only a clean hand-over counts: the new owner
+// never owned or co-owned a roster here before, and the old owner holds no other
+// roster that season (a swap between existing owners is left alone). The owners
+// stay SEPARATE in every record — the page only labels the link.
 export function deriveTakeovers(seasons) {
-  // seasons: [{ season, rosters, users }] oldest first
+  // seasons: [{ season, rosters }] oldest first
   const links = [];
-  for (let i = 1; i < seasons.length; i++) {
-    const a = seasons[i - 1], b = seasons[i];
-    if (!Array.isArray(a.rosters) || !Array.isArray(b.rosters)) continue;
-    const ownersA = new Set(a.rosters.map(r => r.owner_id).filter(Boolean));
-    const ownersB = new Set(b.rosters.map(r => r.owner_id).filter(Boolean));
-    const bByRid = Object.fromEntries(b.rosters.map(r => [r.roster_id, r]));
-    for (const ra of a.rosters) {
-      const rb = bByRid[ra.roster_id];
-      const oa = ra.owner_id, ob = rb?.owner_id;
-      if (!oa || !ob || oa === ob) continue;
-      if (ownersB.has(oa) || ownersA.has(ob)) continue;
-      links.push({ from: oa, to: ob, season: b.season });
+  const lastOwner = {};          // roster_id → most recent non-empty owner
+  const everIn = new Set();      // anyone who owned/co-owned a roster in an earlier season
+  for (const s of seasons) {
+    if (!Array.isArray(s.rosters)) continue;
+    const ownersNow = new Set(s.rosters.flatMap(r => [r.owner_id, ...(r.co_owners || [])]).filter(Boolean));
+    for (const r of s.rosters) {
+      const o = r.owner_id, prev = lastOwner[r.roster_id];
+      if (o && prev && o !== prev && !everIn.has(o) && !ownersNow.has(prev)) {
+        links.push({ from: prev, to: o, season: s.season });
+      }
     }
+    for (const r of s.rosters) if (r.owner_id) lastOwner[r.roster_id] = r.owner_id;
+    ownersNow.forEach(u => everIn.add(u));
   }
   return links;
 }

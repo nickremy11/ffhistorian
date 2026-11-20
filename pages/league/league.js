@@ -101,6 +101,20 @@ function displayNameForSeason(uid, year) {
   return TEAM_NAME_ALIASES[raw] || raw;
 }
 
+// Owners on a roster in the newest season (owner or co-owner) — "*" on Standings.
+let _activeIds = null;
+function activeMemberIds() {
+  if (_activeIds) return _activeIds;
+  const yr = Object.keys(allSeasonData).sort().at(-1);
+  const rosters = allSeasonData[yr]?.rosters || [];
+  _activeIds = new Set(rosters.flatMap(r => [r.owner_id, ...(r.co_owners || [])])
+    .filter(Boolean).map(canonicalUserId));
+  return _activeIds;
+}
+function activeMark(uid) {
+  return activeMemberIds().has(uid) ? `<span class="active-mark" title="In the league this season">*</span>` : "";
+}
+
 // franchiseLinks (generated /l/ leagues): [{ from, to, season }] — an orphan team
 // taken over. Both owners keep their own records; this only labels the link.
 function franchiseLinkTags(uid) {
@@ -1020,12 +1034,12 @@ function renderStandings(year, sortCol, sortDir) {
       if (awards_yr.includes("div"))      awards += `<span class="champ-tag" title="Division Champion" style="background:var(--brown-mid)">🏅</span>`;
     }
 
-    html += `<tr><td>${badge}${name}${awards}${franchiseLinkTags(uid)}</td>`
+    html += `<tr><td>${badge}${name}${activeMark(uid)}${awards}${franchiseLinkTags(uid)}</td>`
       + cols.slice(1).map(c => `<td class="${[c.cls, tierCls(c)].filter(Boolean).join(" ")}">${c.cell(rec)}</td>`).join("")
       + `</tr>`;
   });
 
-  html += `</tbody></table></div>`;
+  html += `</tbody></table></div><p class="active-note"><span class="active-mark">*</span> in the league this season</p>`;
   container.innerHTML = html;
   // Store current year for re-sort
   container.dataset.year = year;

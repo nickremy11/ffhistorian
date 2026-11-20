@@ -353,3 +353,6 @@ footer a { color: var(--brown-mid); text-decoration: none; }
   margin-left: 6px; padding: 0 5px; font-size: 0.72em; white-space: nowrap;
   color: var(--parchment); border: 1px dashed var(--gold); border-radius: 2px; cursor: help; opacity: 0.85;
 }
+.active-mark { color: var(--gold-light); font-weight: 700; margin-left: 2px; cursor: help; }
+.active-note { margin-top: 6px; font-size: 0.8rem; font-style: italic; color: var(--brown-light); text-align: right; }
+.active-note .active-mark { color: var(--gold); }
