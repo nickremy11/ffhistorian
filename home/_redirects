@@ -1,0 +1,35 @@
+# ffhistorian.com is the site landing page. The record book moved to
+# recordbook.ffhistorian.com (a Worker with static assets, ../worker) — old links follow it.
+/l/*            https://recordbook.ffhistorian.com/l/:splat 301
+/league/*       https://recordbook.ffhistorian.com/league/:splat 301
+/recap.js       https://recordbook.ffhistorian.com/recap.js 301
+/myprofile      https://helper.ffhistorian.com/myprofile 301
+/myprofile.html https://helper.ffhistorian.com/myprofile 301
+/2wayinsanity1    https://recordbook.ffhistorian.com/2wayinsanity1/ 301
+/2wayinsanity1/*  https://recordbook.ffhistorian.com/2wayinsanity1/:splat 301
+/2wayinsanity2    https://recordbook.ffhistorian.com/2wayinsanity2/ 301
+/2wayinsanity2/*  https://recordbook.ffhistorian.com/2wayinsanity2/:splat 301
+/bblucky14    https://recordbook.ffhistorian.com/bblucky14/ 301
+/bblucky14/*  https://recordbook.ffhistorian.com/bblucky14/:splat 301
+/dynasty1point0    https://recordbook.ffhistorian.com/dynasty1point0/ 301
+/dynasty1point0/*  https://recordbook.ffhistorian.com/dynasty1point0/:splat 301
+/fugazi    https://recordbook.ffhistorian.com/fugazi/ 301
+/fugazi/*  https://recordbook.ffhistorian.com/fugazi/:splat 301
+/lateroundmusic    https://recordbook.ffhistorian.com/lateroundmusic/ 301
+/lateroundmusic/*  https://recordbook.ffhistorian.com/lateroundmusic/:splat 301
+/ncfl    https://recordbook.ffhistorian.com/ncfl/ 301
+/ncfl/*  https://recordbook.ffhistorian.com/ncfl/:splat 301
+/emmys    https://recordbook.ffhistorian.com/emmys/ 301
+/emmys/*  https://recordbook.ffhistorian.com/emmys/:splat 301
+/souschefs    https://recordbook.ffhistorian.com/souschefs/ 301
+/souschefs/*  https://recordbook.ffhistorian.com/souschefs/:splat 301
+/eastbound    https://recordbook.ffhistorian.com/eastbound/ 301
+/eastbound/*  https://recordbook.ffhistorian.com/eastbound/:splat 301
+/sickos    https://recordbook.ffhistorian.com/sickos/ 301
+/sickos/*  https://recordbook.ffhistorian.com/sickos/:splat 301
+/wolfpack    https://recordbook.ffhistorian.com/wolfpack/ 301
+/wolfpack/*  https://recordbook.ffhistorian.com/wolfpack/:splat 301
+/standrews    https://recordbook.ffhistorian.com/standrews/ 301
+/standrews/*  https://recordbook.ffhistorian.com/standrews/:splat 301
+/eliteffl    https://recordbook.ffhistorian.com/eliteffl/ 301
+/eliteffl/*  https://recordbook.ffhistorian.com/eliteffl/:splat 301

@@ -1,443 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>  
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>FF Historian</title>
-  <link href="https://fonts.googleapis.com/css2?family=Rye&family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
-  <style>
-    :root {
-      --cream: #f5ead6;
-      --parchment: #e8d5b0;
-      --brown-dark: #2a1a0e;
-      --brown-mid: #5c3d1e;
-      --brown-light: #8b5e2e;
-      --green: #2d4a1e;
-      --green-light: #4a7a2f;
-      --red: #8b1a1a;
-      --gold: #c9962a;
-      --gold-light: #e8b84b;
-      --ink: #1a1008;
-    }
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Record Book — FF Historian</title>
+<!-- One look for every FF Historian site: League Assist's shared stylesheet. -->
+<link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css?v=20261122" />
+<script>try{if(/(?:^|; )sh_theme=dark/.test(document.cookie)||localStorage.getItem("sh_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+<style>
+.main { max-width: var(--page-max); margin: 0 auto; padding: 28px 32px 80px; }
+.banner-back { font-family: var(--font-display), serif; font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--gold-light); text-decoration: none; opacity: 0.8; display: inline-block; margin-bottom: 6px; }
+.banner-back:hover { opacity: 1; }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+/* toolbar: search + view toggle */
+.rb-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.rb-tools .search-input { flex: 1 1 260px; min-width: 0; padding: 11px 14px; font: inherit; font-size: 1rem; }
+.rb-view { display: flex; gap: 6px; }
+.rb-view button { font-family: var(--font-display), serif; font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; padding: 10px 14px; cursor: pointer; }
+.rb-count { font-style: italic; color: var(--brown-light); font-size: 0.9rem; margin: 4px 0 18px; min-height: 1.2em; }
 
-    body {
-      background-color: var(--cream);
-      color: var(--ink);
-      font-family: 'Crimson Text', Georgia, serif;
-      min-height: 100vh;
-      background-image:
-        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9962a' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    }
+.rb-label { font-family: var(--font-display), serif; font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--label); margin: 30px 0 12px; display: flex; align-items: center; gap: 12px; }
+.rb-label::after { content: ''; flex: 1; height: 2px; background: var(--rule); }
+.rb-label .n { color: var(--brown-light); letter-spacing: 0.1em; }
 
-    /* ── NOISE OVERLAY ── */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-      opacity: 0.35;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
-    }
+/* grid view */
+.rb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 2px solid var(--edge); border-radius: 10px; }
+a.rb-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; text-decoration: none; color: var(--cream);
+  transition: transform 0.12s, box-shadow 0.12s; }
+a.rb-card:hover { transform: translateY(-2px); box-shadow: 4px 6px 0 rgba(var(--tint),0.18); }
+.rb-logo { flex: none; width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--edge); background: var(--card-hover);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 1.5rem; }
+.rb-logo img { width: 100%; height: 100%; object-fit: cover; }
+.rb-body { min-width: 0; flex: 1; }
+.rb-name { font-family: var(--font-head), serif; font-weight: 700; font-size: 1.02rem; line-height: 1.2; overflow-wrap: anywhere; }
+.rb-meta { font-size: 0.78rem; color: var(--brown-light); margin-top: 3px; }
+.rb-tag { display: inline-block; font-family: var(--font-display), serif; font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid var(--edge); border-radius: 4px; padding: 1px 5px; margin-right: 4px; vertical-align: 1px; }
+.rb-arrow { color: var(--gold); font-size: 1.1rem; }
 
-    .page-wrap { position: relative; z-index: 1; }
+/* list view */
+.rb-table { width: 100%; border-collapse: collapse; background: var(--card); border: 2px solid var(--edge); }
+.rb-table th { background: var(--ink-bg); color: var(--ink-fg); font-family: var(--font-display), serif; font-size: 0.6rem;
+  letter-spacing: 0.14em; text-transform: uppercase; text-align: left; padding: 10px 12px; }
+.rb-table td { padding: 9px 12px; border-bottom: 1px solid var(--rule); color: var(--card-text); font-size: 0.92rem; }
+.rb-table tr:last-child td { border-bottom: none; }
+.rb-table tbody tr { cursor: pointer; }
+.rb-table tbody tr:hover td { background: var(--card-hover); }
+.rb-table a { color: var(--card-text); font-weight: 700; text-decoration: none; }
+@media (max-width: 640px) { .rb-table .rb-hide-sm { display: none; } }
 
-    /* ── BANNER ── */
-    .banner {
-      background: var(--green);
-      border-bottom: 6px double var(--gold);
-      padding: 0;
-      position: relative;
-      overflow: hidden;
-    }
-    .banner::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(
-        -45deg,
-        transparent,
-        transparent 10px,
-        rgba(0,0,0,0.06) 10px,
-        rgba(0,0,0,0.06) 11px
-      );
-    }
-    .banner-inner {
-      position: relative;
-      z-index: 1;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 48px 32px 40px;
-      text-align: center;
-    }
-    .banner-eyebrow {
-      font-family: 'Rye', serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.35em;
-      color: var(--gold-light);
-      text-transform: uppercase;
-      margin-bottom: 14px;
-      opacity: 0.85;
-    }
-    .banner h1 {
-      font-family: 'Rye', serif;
-      font-size: clamp(2rem, 5vw, 3.8rem);
-      color: var(--cream);
-      line-height: 1.1;
-      text-shadow: 3px 3px 0 rgba(0,0,0,0.4);
-      letter-spacing: 0.02em;
-    }
-    .banner h1 span {
-      color: var(--gold-light);
-    }
-    .banner-sub {
-      margin-top: 14px;
-      font-family: 'Playfair Display', serif;
-      font-style: italic;
-      font-size: 1.15rem;
-      color: var(--parchment);
-      opacity: 0.8;
-    }
-    .banner-divider {
-      margin: 18px auto 0;
-      width: 200px;
-      height: 2px;
-      background: linear-gradient(to right, transparent, var(--gold), transparent);
-    }
+.rb-empty { font-style: italic; color: var(--brown-light); padding: 8px 0; }
+.rb-note { font-style: italic; color: var(--brown-light); margin: 6px 0; }
+.rb-note a { color: var(--gold); }
 
-    /* ── FOOTBALL LACE SVG DECORATION ── */
-    .lace-row {
-      text-align: center;
-      padding: 18px 0 4px;
-      color: var(--brown-light);
-      font-size: 1.4rem;
-      letter-spacing: 0.5em;
-      opacity: 0.5;
-    }
-
-    /* ── MAIN CONTENT ── */
-    .main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 40px 32px 80px;
-    }
-
-    .section-label {
-      font-family: 'Rye', serif;
-      font-size: 0.7rem;
-      letter-spacing: 0.4em;
-      text-transform: uppercase;
-      color: var(--brown-light);
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    .section-label::before,
-    .section-label::after {
-      content: ' ✦ ';
-      color: var(--gold);
-    }
-
-    /* ── LEAGUE GRID ── */
-    .league-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 24px;
-    }
-
-    .league-card {
-      background: var(--brown-dark);
-      border: 2px solid var(--brown-mid);
-      border-radius: 2px;
-      overflow: hidden;
-      text-decoration: none;
-      display: block;
-      position: relative;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      box-shadow: 4px 4px 0 var(--brown-mid);
-    }
-    .league-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(201,150,42,0.08) 0%, transparent 60%);
-      pointer-events: none;
-    }
-    .league-card:hover {
-      transform: translate(-2px, -2px);
-      box-shadow: 6px 6px 0 var(--gold);
-    }
-
-    .card-logo-bar {
-      background: var(--green);
-      height: 90px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-bottom: 3px solid var(--gold);
-      font-size: 3rem;
-      position: relative;
-      overflow: hidden;
-    }
-    .card-logo-bar img {
-      height: 64px;
-      width: 64px;
-      object-fit: contain;
-      position: relative;
-      z-index: 1;
-    }
-    .card-logo-bar::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 8px,
-        rgba(255,255,255,0.03) 8px,
-        rgba(255,255,255,0.03) 9px
-      );
-    }
-
-    .card-body {
-      padding: 18px 20px 20px;
-    }
-    .card-number {
-      font-family: 'Rye', serif;
-      font-size: 0.6rem;
-      letter-spacing: 0.3em;
-      color: var(--gold);
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .card-name {
-      font-family: 'Playfair Display', serif;
-      font-weight: 700;
-      font-size: 1.1rem;
-      color: var(--cream);
-      line-height: 1.3;
-    }
-    .card-platform {
-      display: inline-block;
-      margin-top: 10px;
-      font-family: 'Crimson Text', serif;
-      font-size: 0.78rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--green-light);
-      border: 1px solid var(--green-light);
-      padding: 2px 8px;
-      border-radius: 1px;
-    }
-    .card-arrow {
-      position: absolute;
-      bottom: 18px;
-      right: 18px;
-      width: 28px;
-      height: 28px;
-      border: 1.5px solid var(--gold);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--gold);
-      font-size: 0.9rem;
-      opacity: 0.6;
-      transition: opacity 0.2s, background 0.2s;
-    }
-    .league-card:hover .card-arrow {
-      opacity: 1;
-      background: var(--gold);
-      color: var(--brown-dark);
-    }
-
-    /* ── FOOTER ── */
-    footer {
-      border-top: 3px double var(--brown-light);
-      padding: 24px 32px;
-      text-align: center;
-      font-family: 'Crimson Text', serif;
-      font-size: 0.85rem;
-      color: var(--brown-light);
-      background: var(--parchment);
-    }
-    footer a {
-      color: var(--brown-mid);
-      text-decoration: none;
-    }
-    footer a:hover { text-decoration: underline; }
-
-
-    /* ── ANY SLEEPER LEAGUE ── */
-    .auth-corner { position: absolute; top: 14px; right: 18px; z-index: 2; }
-    .finder {
-      max-width: 720px; margin: 0 auto 44px; padding: 22px 24px;
-      background: var(--parchment); border: 2px solid var(--brown-light);
-      box-shadow: 4px 4px 0 var(--brown-mid);
-    }
-    .finder p { color: var(--brown-mid); margin-bottom: 12px; text-align: center; }
-    .finder-row { display: flex; gap: 10px; }
-    .finder-row input {
-      flex: 1; min-width: 0; padding: 10px 12px; font: inherit; font-size: 1rem;
-      border: 2px solid var(--brown-light); background: var(--cream); color: var(--ink);
-    }
-    .finder-btn {
-      padding: 10px 18px; cursor: pointer; font-family: 'Rye', serif; font-size: 0.7rem;
-      letter-spacing: 0.15em; text-transform: uppercase;
-      color: var(--cream); background: var(--green); border: 2px solid var(--gold);
-    }
-    .finder-btn:hover { background: var(--green-light); }
-    .finder-msg { min-height: 1.2em; margin-top: 8px; text-align: center; color: var(--red); font-style: italic; }
-    .mine-grid { margin-bottom: 48px; }
-    .mine-note { text-align: center; color: var(--brown-light); font-style: italic; margin-bottom: 40px; }
-    .mine-note a { color: var(--brown-mid); }
-    .card-logo-bar .emoji { font-size: 2.4rem; }
-
-    /* ── ANIMATIONS ── */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .banner-inner { animation: fadeUp 0.6s ease both; }
-    .league-card {
-      animation: fadeUp 0.5s ease both;
-    }
-  </style>
+/* open any league by id */
+.rb-finder { padding: 16px 18px; margin-top: 30px; }
+.rb-finder p { margin-bottom: 10px; color: var(--parchment); }
+.rb-finder p a { color: var(--gold); }
+.rb-finder-row { display: flex; gap: 10px; }
+.rb-finder-row input { flex: 1; min-width: 0; padding: 10px 12px; font: inherit; }
+.rb-finder-msg { min-height: 1.2em; margin-top: 6px; color: var(--c-red); font-style: italic; font-size: 0.9rem; }
+footer { padding: 24px; }
+</style>
 </head>
 <body>
-  <!-- BANNER -->
+<div class="page-wrap">
   <header class="banner">
-    <div class="auth-corner" id="auth-chip"></div>
     <div class="banner-inner">
-      <p class="banner-eyebrow">Est. by the Gridiron Faithful</p>
-      <h1>Welcome to the<br/><span>FF Historian</span></h1>
-      <p class="banner-sub">The Official Archive of Fantasy Football Lore</p>
-      <div class="banner-divider"></div>
+      <div class="banner-text">
+        <a class="banner-back" href="https://ffhistorian.com">← FF Historian</a>
+        <h1>The Record <span>Book</span></h1>
+        <div class="banner-sub">Standings, rivalries, trades and records for every league</div>
+        <div class="banner-divider"></div>
+      </div>
+      <div id="auth-chip" style="flex-shrink:0;"></div>
     </div>
   </header>
 
-  <div class="lace-row">— ✦ — ✦ — ✦ —</div>
-
-  <!-- MAIN -->
   <main class="main">
-    <p class="section-label">Open Any Sleeper League</p>
-    <div class="finder">
-      <p id="finderHint">Paste a Sleeper league ID or league link to open its history book.</p>
-      <div class="finder-row">
-        <input id="finderInput" placeholder="e.g. 1180232430068178944 or sleeper.com/leagues/…" autocomplete="off"/>
-        <button class="finder-btn" onclick="openLeagueFromInput()">Open</button>
+    <div class="rb-tools">
+      <input id="rbSearch" class="search-input" type="search" placeholder="Search leagues…" autocomplete="off" aria-label="Search leagues"/>
+      <div class="rb-view" role="group" aria-label="View">
+        <button class="pos-pill" data-view="grid" onclick="setView('grid')">▦ Grid</button>
+        <button class="pos-pill" data-view="list" onclick="setView('list')">☰ List</button>
       </div>
-      <div class="finder-msg" id="finderMsg"></div>
     </div>
+    <div class="rb-count" id="rbCount"></div>
 
-    <div id="mineWrap" hidden>
-      <p class="section-label">Your Sleeper Leagues</p>
-      <div id="mineBody"></div>
+    <div id="rbArchive"></div>
+    <div id="rbMine"></div>
+
+    <div class="card rb-finder">
+      <p id="finderHint">Open any Sleeper league's history book: paste its league ID or sleeper.com link.</p>
+      <div class="rb-finder-row">
+        <input id="finderInput" class="search-input" placeholder="e.g. 1180232430068178944 or sleeper.com/leagues/…" autocomplete="off"/>
+        <button class="setup-btn" style="padding:0 18px;font-family:var(--font-display),serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer" onclick="openLeagueFromInput()">Open</button>
+      </div>
+      <div class="rb-finder-msg" id="finderMsg"></div>
     </div>
-
-    <p class="section-label">Select Your League</p>
-
-    <!-- Cards come from /league/leagues.js — add a league there, not here. -->
-    <div class="league-grid" id="leagueGrid"></div>
   </main>
 
   <footer>
-    <p>ffhistorian.com &nbsp;·&nbsp; Built on <a href="https://sleeper.com">Sleeper</a> &amp; <a href="https://fantasy.espn.com">ESPN</a> data &nbsp;·&nbsp; Powered by Cloudflare Pages &amp; Workers</p>
+    <p><a href="https://ffhistorian.com">FF Historian</a> · Built on <a href="https://sleeper.com">Sleeper</a> &amp; <a href="https://fantasy.espn.com">ESPN</a> data</p>
   </footer>
-
 </div>
+
 <script src="https://helper.ffhistorian.com/shared-auth.js"></script>
 <script src="/league/leagues.js"></script>
 <script>
-  // League cards, in LEAGUES order: "League I", "League II", …
-  (function () {
-    const roman = n => [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]
-      .reduce((out, [v, r]) => { while (n >= v) { out += r; n -= v; } return out; }, "");
-    const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-    document.getElementById("leagueGrid").innerHTML = LEAGUES.map((l, i) => `
-      <a class="league-card" href="/${l.slug}" style="animation-delay:${((i + 1) * 0.05).toFixed(2)}s">
-        <div class="card-logo-bar"><img src="${esc(l.logo)}" alt="${esc(l.cardName)} Logo"
-          onerror="this.replaceWith(document.createTextNode(${esc(JSON.stringify(l.emoji || "🏈"))}))"/></div>
-        <div class="card-body">
-          <p class="card-number">League ${roman(i + 1)}</p>
-          <p class="card-name">${esc(l.cardName)}</p>
-          <span class="card-platform">${l.platform === "espn" ? "ESPN" : "Sleeper"}</span>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>`).join("");
-  })();
-</script>
+// ════════════════════════════════════════════════════════════════════════════
+// The Record Book landing (recordbook.ffhistorian.com).
+//   Archive leagues  — the curated LEAGUES list (league/leagues.js)
+//   Your leagues     — signed in: your current Sleeper leagues (/api/history/mine),
+//                      each opening at /l/{id} (worker/src/history.js)
+// One search box filters both as you type; Grid/List is remembered per browser.
+// ════════════════════════════════════════════════════════════════════════════
+const escH = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
-<script>
-  // ── Any Sleeper league → /l/{id} (worker builds its config; see worker/src/history.js).
-  // Opening a league the first time needs an account; the /l/{id} link is then public.
-  const escH = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const RB = {
+  view: lsGet("rb_view") === "list" ? "list" : "grid",
+  q: "",
+  mine: null,          // null = not loaded / signed out; [] = none
+  mineMsg: "",
+};
 
-  // A curated league opens on its own page, whichever season's id was given
-  function leagueHref(id) {
-    const c = LEAGUES.find(l => Object.values(l.seasons || {}).map(String).includes(String(id)));
-    return c ? `/${c.slug}/` : `/l/${id}`;
-  }
+// A curated league opens on its own page, whichever season's id was given
+function leagueHref(id) {
+  const c = LEAGUES.find(l => Object.values(l.seasons || {}).map(String).includes(String(id)));
+  return c ? `/${c.slug}/` : `/l/${id}`;
+}
 
-  function openLeagueFromInput() {
-    const raw = document.getElementById("finderInput").value.trim();
-    const m = raw.match(/\d{6,25}/);
-    const msg = document.getElementById("finderMsg");
-    if (!m) { msg.textContent = "That doesn't look like a Sleeper league ID."; return; }
-    // Signed out still goes: an already-opened league works for anyone, and the
-    // league page asks for sign-in if this one is new.
-    location.href = leagueHref(m[0]);
-  }
-  document.getElementById("finderInput").addEventListener("keydown", e => { if (e.key === "Enter") openLeagueFromInput(); });
-
-  async function loadMine() {
-    const wrap = document.getElementById("mineWrap"), body = document.getElementById("mineBody");
-    wrap.hidden = false;
-    body.innerHTML = `<p class="mine-note">Reading your leagues from Sleeper…</p>`;
-    let d;
-    try {
-      const r = await fetch("/api/history/mine", { credentials: "include" });
-      d = await r.json();
-      if (!r.ok) throw new Error(d.error || r.status);
-    } catch (e) {
-      body.innerHTML = `<p class="mine-note">Couldn't load your leagues (${escH(e.message)}).</p>`; return;
-    }
-    if (d.noUsername || d.badUsername) {
-      body.innerHTML = `<p class="mine-note">${d.badUsername ? `Sleeper doesn't know the username “${escH(d.badUsername)}”.` : "No Sleeper username on your account."}
-        Set it on <a href="https://helper.ffhistorian.com/myprofile">your profile</a> to list your leagues here.</p>`;
-      return;
-    }
-    if (!d.leagues.length) { body.innerHTML = `<p class="mine-note">No Sleeper leagues this season.</p>`; return; }
-    d.leagues.sort((a, b) => a.name.localeCompare(b.name));
-    body.innerHTML = `<div class="league-grid mine-grid">${d.leagues.map(l => {
-      const kind = [l.dynasty ? "Dynasty" : "Redraft", l.best_ball ? "Best Ball" : "", `${l.teams} teams`].filter(Boolean).join(" · ");
-      const logo = l.avatar
-        ? `<img src="https://sleepercdn.com/avatars/thumbs/${escH(l.avatar)}" alt="" onerror="this.replaceWith(document.createTextNode('🏈'))"/>`
-        : `<span class="emoji">🏈</span>`;
-      return `<a class="league-card" href="${leagueHref(l.league_id)}">
-        <div class="card-logo-bar">${logo}</div>
-        <div class="card-body">
-          <p class="card-number">${escH(l.season)}${l.opened ? " · in the archive" : ""}</p>
-          <p class="card-name">${escH(l.name)}</p>
-          <span class="card-platform">${escH(kind)}</span>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>`;
-    }).join("")}</div>`;
-  }
-
-  (async function () {
-    const hint = document.getElementById("finderHint");
-    const onIn = () => { hint.textContent = "Paste a Sleeper league ID or league link to open its history book."; loadMine(); };
-    const onOut = () => {
-      hint.innerHTML = `Paste a Sleeper league ID or link. Opening a new league needs an account — <a href="#" onclick="SharedAuth.openModal();return false;">sign in</a>; the link it makes works for anyone.`;
-      document.getElementById("mineWrap").hidden = true;
+// One row shape for both lists, so the grid, the table and the search don't branch
+function archiveRows() {
+  return LEAGUES.map(l => {
+    const yrs = Object.keys(l.seasons || {}).sort();
+    return {
+      href: `/${l.slug}/`, name: l.cardName || l.name, logo: l.logo, emoji: l.emoji || "🏈",
+      platform: l.platform === "espn" ? "ESPN" : "Sleeper",
+      format: l.format === "redraft" ? "Redraft" : "Dynasty",
+      seasons: yrs.length ? (yrs.length > 1 ? `${yrs[0]}–${yrs.at(-1)}` : yrs[0]) : "",
+      extra: "",
     };
-    if (!window.SharedAuth) return;
-    const user = await SharedAuth.init({ chipContainerId: "auth-chip", onLogin: onIn, onLogout: onOut });
-    user ? onIn() : onOut();
-  })();
+  });
+}
+function mineRows() {
+  // A curated league already sits in the archive list — don't show it twice
+  const curated = new Set(LEAGUES.flatMap(l => Object.values(l.seasons || {}).map(String)));
+  return (RB.mine || []).filter(l => !curated.has(String(l.league_id))).map(l => ({
+    href: leagueHref(l.league_id), name: l.name,
+    logo: l.avatar ? `https://sleepercdn.com/avatars/thumbs/${l.avatar}` : "", emoji: "🏈",
+    platform: "Sleeper",
+    format: (l.dynasty ? "Dynasty" : "Redraft") + (l.best_ball ? " · Best Ball" : ""),
+    seasons: String(l.season), extra: `${l.teams} teams`,
+  }));
+}
+
+const matches = (r, q) => !q || `${r.name} ${r.platform} ${r.format} ${r.seasons}`.toLowerCase().includes(q);
+
+function logoHtml(r) {
+  return r.logo
+    ? `<span class="rb-logo"><img src="${escH(r.logo)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('${r.emoji}'))"/></span>`
+    : `<span class="rb-logo">${escH(r.emoji)}</span>`;
+}
+
+function listHtml(rows) {
+  if (RB.view === "list") {
+    return `<table class="rb-table"><thead><tr><th>League</th><th>Platform</th><th class="rb-hide-sm">Format</th><th>Seasons</th></tr></thead><tbody>${
+      rows.map(r => `<tr onclick="location.href='${escH(r.href)}'">
+        <td><a href="${escH(r.href)}">${escH(r.name)}</a></td>
+        <td>${escH(r.platform)}</td>
+        <td class="rb-hide-sm">${escH(r.format)}${r.extra ? ` · ${escH(r.extra)}` : ""}</td>
+        <td>${escH(r.seasons)}</td></tr>`).join("")
+    }</tbody></table>`;
+  }
+  return `<div class="rb-grid">${rows.map(r => `
+    <a class="card rb-card" href="${escH(r.href)}">
+      ${logoHtml(r)}
+      <span class="rb-body">
+        <span class="rb-name">${escH(r.name)}</span>
+        <span class="rb-meta" style="display:block"><span class="rb-tag">${escH(r.platform)}</span>${escH(r.format)}${r.seasons ? ` · ${escH(r.seasons)}` : ""}${r.extra ? ` · ${escH(r.extra)}` : ""}</span>
+      </span>
+      <span class="rb-arrow">→</span>
+    </a>`).join("")}</div>`;
+}
+
+function section(title, all, q) {
+  const rows = all.filter(r => matches(r, q));
+  const n = q ? `${rows.length} of ${all.length}` : `${all.length}`;
+  return { rows, html: `<div class="rb-label">${escH(title)} <span class="n">${n}</span></div>`
+    + (rows.length ? listHtml(rows) : `<p class="rb-empty">No ${escH(title.toLowerCase())} match “${escH(RB.q)}”.</p>`) };
+}
+
+function draw() {
+  const q = RB.q.trim().toLowerCase();
+  document.querySelectorAll(".rb-view button").forEach(b => b.classList.toggle("active", b.dataset.view === RB.view));
+
+  const a = section("Archive leagues", archiveRows(), q);
+  document.getElementById("rbArchive").innerHTML = a.html;
+
+  let shown = a.rows.length, total = LEAGUES.length;
+  const mineEl = document.getElementById("rbMine");
+  if (RB.mine === null) {
+    mineEl.innerHTML = RB.mineMsg ? `<div class="rb-label">Your Sleeper leagues</div><p class="rb-note">${RB.mineMsg}</p>` : "";
+  } else {
+    const all = mineRows();
+    const m = section("Your Sleeper leagues", all, q);
+    mineEl.innerHTML = all.length ? m.html : `<div class="rb-label">Your Sleeper leagues</div><p class="rb-note">${RB.mineMsg || "No other Sleeper leagues this season."}</p>`;
+    shown += m.rows.length; total += all.length;
+  }
+  document.getElementById("rbCount").textContent = q ? `${shown} of ${total} leagues match` : "";
+}
+
+function setView(v) { RB.view = v; lsSet("rb_view", v); draw(); }
+
+document.getElementById("rbSearch").addEventListener("input", e => { RB.q = e.target.value; draw(); });
+
+function openLeagueFromInput() {
+  const m = document.getElementById("finderInput").value.trim().match(/\d{6,25}/);
+  if (!m) { document.getElementById("finderMsg").textContent = "That doesn't look like a Sleeper league ID."; return; }
+  // Signed out still goes: an already-opened league works for anyone, and the
+  // league page asks for sign-in if this one is new.
+  location.href = leagueHref(m[0]);
+}
+document.getElementById("finderInput").addEventListener("keydown", e => { if (e.key === "Enter") openLeagueFromInput(); });
+
+async function loadMine() {
+  RB.mine = null; RB.mineMsg = "Reading your leagues from Sleeper…"; draw();
+  try {
+    const r = await fetch("/api/history/mine", { credentials: "include" });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    if (d.noUsername || d.badUsername) {
+      RB.mine = [];
+      RB.mineMsg = `${d.badUsername ? `Sleeper doesn't know the username “${escH(d.badUsername)}”.` : "No Sleeper username on your account."}
+        Add it on <a href="https://helper.ffhistorian.com/myprofile">your profile</a> to list your leagues here.`;
+    } else {
+      RB.mine = d.leagues.sort((a, b) => a.name.localeCompare(b.name));
+      RB.mineMsg = "";
+    }
+  } catch (e) {
+    RB.mine = null; RB.mineMsg = `Couldn't load your leagues (${escH(e.message)}).`;
+  }
+  draw();
+}
+
+(async function init() {
+  draw();
+  const hint = document.getElementById("finderHint");
+  const onIn = () => { loadMine(); };
+  const onOut = () => {
+    RB.mine = null;
+    RB.mineMsg = `<a href="#" onclick="SharedAuth.openModal();return false;">Sign in</a> to list your own Sleeper leagues here.`;
+    hint.innerHTML = `Open any Sleeper league's history book: paste its league ID or sleeper.com link. Opening a league for the first time needs an account; after that, its link works for anyone.`;
+    draw();
+  };
+  if (!window.SharedAuth) return onOut();
+  const user = await SharedAuth.init({ chipContainerId: "auth-chip", onLogin: onIn, onLogout: onOut });
+  user ? onIn() : onOut();
+})();
 </script>
 </body>
 </html>

@@ -2,9 +2,18 @@ name = "ffhistorian-worker"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
+# The record book: this Worker serves the static pages (../pages, incl. _redirects)
+# AND the API, on its own host. Requests that match a file are served straight from
+# the assets; everything else (/api/*) runs the Worker.
+# ffhistorian.com/api/* stays routed here too, for anything still calling the old host.
 routes = [
-  { pattern = "ffhistorian.com/api/*", zone_name = "ffhistorian.com" }
+  { pattern = "recordbook.ffhistorian.com", custom_domain = true },
+  { pattern = "ffhistorian.com/api/*", zone_name = "ffhistorian.com" },
 ]
+
+[assets]
+directory = "../pages"
+html_handling = "auto-trailing-slash"
 
 [[kv_namespaces]]
 binding = "FF_CACHE"

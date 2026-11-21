@@ -1,8 +1,12 @@
-# FF Historian
+# FF Historian — the landing page and The Record Book
 
-Fantasy football historical records site for Sleeper leagues, built on Cloudflare Pages + Workers.
-
-🌐 **Live site:** https://ffhistorian.com
+- **`home/`** → **ffhistorian.com**: the site landing page (tool cards) and `/getting-started/`.
+  Deployed to the `ffhistorian` Pages project. `home/_redirects` sends every old record-book URL
+  (`/ncfl`, `/l/{id}`, `/league/*`…) to recordbook.ffhistorian.com.
+- **`pages/` + `worker/`** → **recordbook.ffhistorian.com**: The Record Book. ONE Worker serves the
+  pages as static assets (`[assets]` in `worker/wrangler.toml`, `_redirects` included) and the API,
+  on a custom domain. `ffhistorian.com/api/*` still routes to it for old callers.
+- Styling comes from League Assist's `shared-styles.css` (Game-Day Programme, dark mode too).
 
 ---
 
@@ -11,7 +15,7 @@ Fantasy football historical records site for Sleeper leagues, built on Cloudflar
 ```
 ffhistorian/
 ├── pages/                   # Cloudflare Pages (static HTML)
-│   ├── index.html           # Landing page — cards built from league/leagues.js
+│   ├── index.html           # Record Book landing: search (live filter), grid/list, your leagues
 │   ├── league/
 │   │   ├── leagues.js       # THE league list: ids, branding, format, merges
 │   │   ├── league.js        # the shared league page (all tabs, all logic)

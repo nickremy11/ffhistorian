@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FF Historian — Fantasy football tools, records and rankings</title>
+<meta name="description" content="League Assist, My Ranks, the Record Book and Playoff Pools: one account for every fantasy football tool on FF Historian." />
+<link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css?v=20261122" />
+<link rel="stylesheet" href="/home.css?v=20261120" />
+<script>try{if(/(?:^|; )sh_theme=dark/.test(document.cookie)||localStorage.getItem("sh_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+</head>
+<body>
+<div class="page-wrap">
+  <header class="banner hero">
+    <div class="hero-top">
+      <span class="hero-mark">FF Historian</span>
+      <div id="auth-chip"></div>
+    </div>
+    <div class="hero-inner">
+      <div class="hero-crest" aria-hidden="true">FF</div>
+      <p class="hero-kicker">Est. by the Gridiron Faithful</p>
+      <h1>FF <span>Historian</span></h1>
+      <p class="hero-sub">Every tool for every league you're in, with one account across all of them.</p>
+      <div class="hero-cta">
+        <a class="hero-btn go" href="/getting-started/">Get started</a>
+        <a class="hero-btn" href="#" id="heroSignIn" onclick="SharedAuth.openModal();return false;">Sign in</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <h2 class="home-label">Choose your tool</h2>
+    <div class="tools">
+      <a class="tool" href="https://helper.ffhistorian.com">
+        <span class="tool-ico" aria-hidden="true">🏈</span>
+        <span class="tool-name">League Assist</span>
+        <span class="tool-tag">Manage your leagues</span>
+        <span class="tool-desc">Run every league at once: lineups, playoff odds, trades, waivers, live drafts and the scoreboard, for Sleeper and ESPN.</span>
+        <span class="tool-go">Open League Assist →</span>
+      </a>
+      <a class="tool" href="https://myranks.ffhistorian.com">
+        <span class="tool-ico" aria-hidden="true">📋</span>
+        <span class="tool-name">My Ranks</span>
+        <span class="tool-tag">Create your tiers</span>
+        <span class="tool-desc">Build your own tiered rankings, starting from FantasyCalc or a CSV. They show up beside your players across League Assist.</span>
+        <span class="tool-go">Open My Ranks →</span>
+      </a>
+      <a class="tool" href="https://recordbook.ffhistorian.com">
+        <span class="tool-ico" aria-hidden="true">📜</span>
+        <span class="tool-name">The Record Book</span>
+        <span class="tool-tag">Open the record book</span>
+        <span class="tool-desc">The history of any league: all-time standings, head to head, every trade with its day-of value, and league records.</span>
+        <span class="tool-go">Open the Record Book →</span>
+      </a>
+      <a class="tool" href="https://playoff.ffhistorian.com">
+        <span class="tool-ico" aria-hidden="true">🏆</span>
+        <span class="tool-name">Playoff Pools</span>
+        <span class="tool-tag">Draft your playoff team</span>
+        <span class="tool-desc">A pool for the NFL playoffs: start a room, draft playoff teams with your friends, and the most playoff points wins.</span>
+        <span class="tool-go">Open Playoff Pools →</span>
+      </a>
+      <div class="tool soon" aria-disabled="true">
+        <span class="tool-ico" aria-hidden="true">🪑</span>
+        <span class="tool-name">Commish's Corner <span class="soon-tag">Coming soon</span></span>
+        <span class="tool-tag">Run your league</span>
+        <span class="tool-desc">Tools for the person running the league.</span>
+      </div>
+    </div>
+
+    <section class="new-here card">
+      <div>
+        <h2>New here?</h2>
+        <p>Make an account, connect Sleeper (and ESPN if you play there), and every tool picks up your leagues. Getting Started walks you through it and says what each step unlocks.</p>
+      </div>
+      <a class="hero-btn go" href="/getting-started/">Getting Started →</a>
+    </section>
+  </main>
+
+  <footer>
+    <p>ffhistorian.com · Built on <a href="https://sleeper.com">Sleeper</a> &amp; <a href="https://fantasy.espn.com">ESPN</a> data</p>
+  </footer>
+</div>
+<script src="https://helper.ffhistorian.com/shared-auth.js"></script>
+<script>
+(async function () {
+  const btn = document.getElementById("heroSignIn");
+  const show = u => { btn.style.display = u ? "none" : ""; };
+  if (!window.SharedAuth) return;
+  show(await SharedAuth.init({ chipContainerId: "auth-chip", onLogin: show, onLogout: () => show(null) }));
+})();
+</script>
+</body>
+</html>

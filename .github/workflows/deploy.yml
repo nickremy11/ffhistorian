@@ -5,9 +5,11 @@ on:
     branches: [main]
 
 jobs:
-  # ── Deploy static Pages ──────────────────────────────────
+  # ── Deploy the ffhistorian.com landing page (home/) to Pages ──
+  # The record book itself (pages/) ships with the Worker below as its static
+  # assets, on recordbook.ffhistorian.com.
   deploy-pages:
-    name: Deploy Cloudflare Pages
+    name: Deploy Cloudflare Pages (landing)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,10 +20,10 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: ffhistorian
-          directory: pages
+          directory: home
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── Deploy Cloudflare Worker ─────────────────────────────
+  # ── Deploy the Worker: record book pages + API (recordbook.ffhistorian.com) ──
   deploy-worker:
     name: Deploy Cloudflare Worker
     runs-on: ubuntu-latest

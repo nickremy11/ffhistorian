@@ -291,7 +291,7 @@ function renderShell() {
            onerror="this.replaceWith(Object.assign(document.createElement('span'), { className: 'banner-logo banner-emoji', textContent: ${escHtml(JSON.stringify(L.emoji || "🏈"))} }))"/>`
         : `<span class="banner-logo banner-emoji">${escHtml(L.emoji || "🏈")}</span>`}
       <div class="banner-text">
-        <a class="banner-back" href="/">← All Leagues</a>
+        <a class="banner-back" href="/">← The Record Book</a>
         <h1>${escHtml(L.h1[0])} <span>${escHtml(L.h1[1])}</span></h1>
         <p class="banner-sub">The Official Record &amp; Archive</p>
         <p class="banner-seasons">${years.join(" · ")}</p>
@@ -402,7 +402,7 @@ function renderShell() {
   </main>
 
   <footer>
-    <p>ffhistorian.com &nbsp;·&nbsp; Data via ${dataVia} &nbsp;·&nbsp; Powered by Cloudflare Pages &amp; Workers</p>
+    <p><a href="https://ffhistorian.com">FF Historian</a> &nbsp;·&nbsp; <a href="/">The Record Book</a> &nbsp;·&nbsp; Data via ${dataVia}</p>
   </footer>
 </div>
 
@@ -468,7 +468,7 @@ function renderSignInGate() {
     <div class="error-msg gate">
       <p><strong>This league hasn't been opened in the archive yet.</strong></p>
       <p>Sign in to open it — after that, its link works for anyone, no account needed.</p>
-      <p><button class="gate-btn" onclick="gateSignIn()">Sign in</button> &nbsp; <a href="/">All leagues →</a></p>
+      <p><button class="gate-btn" onclick="gateSignIn()">Sign in</button> &nbsp; <a href="/">The Record Book →</a></p>
     </div>`;
 }
 
@@ -500,8 +500,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!LEAGUE) {
     if (res.needsSignIn) return renderSignInGate();
     document.getElementById("app").innerHTML = res.error
-      ? `<div class="error-msg">${escHtml(res.error)} <a href="/">All leagues →</a></div>`
-      : `<div class="error-msg">No league is set up at “/${escHtml(LEAGUE_SLUG)}/”. <a href="/">All leagues →</a></div>`;
+      ? `<div class="error-msg">${escHtml(res.error)} <a href="/">The Record Book →</a></div>`
+      : `<div class="error-msg">No league is set up at “/${escHtml(LEAGUE_SLUG)}/”. <a href="/">The Record Book →</a></div>`;
     return;
   }
   renderShell();

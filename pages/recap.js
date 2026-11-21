@@ -583,28 +583,28 @@ function rcRoot() { return document.getElementById("recapContent"); }
 // Everything else (tables, buttons, pills, loading/error states) is the page's own.
 const RC_CSS = `
   .rc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-  .rc-title { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.5rem; color: var(--brown-dark); }
-  .rc-sub { font-family: 'Crimson Text', serif; font-size: 1rem; color: var(--brown-light); margin-top: 2px; }
+  .rc-title { font-family: var(--font-head), serif; font-weight: 700; font-size: 1.5rem; color: var(--brown-dark); }
+  .rc-sub { font-family: var(--font-body), serif; font-size: 1rem; color: var(--brown-light); margin-top: 2px; }
   .rc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .rc-actions .lookup-btn { margin-top: 0; padding: 8px 14px; }
   .rc-section { margin-bottom: 32px; }
-  .rc-h { font-family: 'Rye', serif; font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--brown-dark); margin-bottom: 10px; }
+  .rc-h { font-family: var(--font-display), serif; font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--brown-dark); margin-bottom: 10px; }
   .rc-table th { cursor: default; }
   .rc-table th:hover { color: var(--gold-light); }
   .rc-table th:nth-child(2), .rc-table td.rc-owner { text-align: left !important; }
-  .standings-table td.rc-pos { min-width: 0; width: 52px; font-family: 'Rye', serif; font-size: 0.75rem; color: var(--gold-light); }
+  .standings-table td.rc-pos { min-width: 0; width: 52px; font-family: var(--font-display), serif; font-size: 0.75rem; color: var(--gold-light); }
   .standings-table td.rc-owner { min-width: 170px; max-width: 280px; white-space: normal; }
-  .rc-owner-name { font-family: 'Playfair Display', serif; font-weight: 700; color: var(--cream); }
+  .rc-owner-name { font-family: var(--font-head), serif; font-weight: 700; color: var(--cream); }
   .rc-rec-sub { font-size: 0.82em; opacity: 0.65; white-space: nowrap; }
   .rc-team, .rc-via { display: block; font-size: 0.82rem; color: var(--parchment); opacity: 0.6; font-style: italic; }
   .rc-via { opacity: 0.85; color: var(--gold-light); }
   .rc-odds { color: var(--gold-light) !important; font-weight: 600; }
-  .rc-tag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 10px; font-family: 'Crimson Text', serif; font-size: 0.72rem; font-weight: 700; vertical-align: middle; white-space: nowrap; }
+  .rc-tag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 10px; font-family: var(--font-body), serif; font-size: 0.72rem; font-weight: 700; vertical-align: middle; white-space: nowrap; }
   .rc-tag-bye { background: var(--gold); color: var(--brown-dark); }
   .rc-tag-in  { background: var(--green-light); color: var(--cream); }
-  .rc-empty { font-family: 'Playfair Display', serif; font-style: italic; color: var(--brown-light); }
+  .rc-empty { font-family: var(--font-head), serif; font-style: italic; color: var(--brown-light); }
   .rc-round-pills { margin-bottom: 12px; }
-  .rc-note { margin-top: 10px; font-family: 'Crimson Text', serif; font-size: 0.85rem; font-style: italic; color: var(--brown-light); }
+  .rc-note { margin-top: 10px; font-family: var(--font-body), serif; font-size: 0.85rem; font-style: italic; color: var(--brown-light); }
   @media (max-width: 600px) {
     .standings-table td.rc-pos { width: 34px; }
     .standings-table td.rc-rec { white-space: normal; }
