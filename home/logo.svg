@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- FF Historian app logo (Google OAuth consent screen, 120x120). Same mark as
+       favicon.svg, but full-bleed square with no transparent corners. -->
+  <rect width="120" height="120" fill="#1f3d22"/>
+  <circle cx="60" cy="60" r="51" fill="none" stroke="#f0b93a" stroke-width="5"/>
+  <g transform="translate(60 60) rotate(-35) scale(1.22) translate(-32 -32)">
+    <path d="M7 32 Q32 5 57 32 Q32 59 7 32 Z" fill="#f0b93a"/>
+    <path d="M14.5 22.5 Q17.5 32 14.5 41.5 M49.5 22.5 Q46.5 32 49.5 41.5" fill="none" stroke="#1f3d22" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M23 32 H41" stroke="#f3e9d2" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M26 28 V36 M30 28 V36 M34 28 V36 M38 28 V36" stroke="#f3e9d2" stroke-width="2.6" stroke-linecap="round"/>
+  </g>
+</svg>
