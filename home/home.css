@@ -48,6 +48,14 @@ a.tool:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--edg
 .new-here { margin-top: 34px; padding: 22px 24px; display: flex; gap: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .new-here h2 { font-family: var(--font-display), serif; font-size: 0.9rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--card-text); margin-bottom: 6px; }
 .new-here p { color: var(--card-text2); max-width: 640px; line-height: 1.55; }
+.about { margin-top: 18px; padding: 22px 24px; display: flex; gap: 20px; align-items: flex-start; }
+.about-logo { flex: none; border-radius: 50%; }
+.about h2 { font-family: var(--font-display), serif; font-size: 0.9rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--card-text); margin-bottom: 6px; }
+.about p { color: var(--card-text2); line-height: 1.6; margin-bottom: 10px; }
+.about p:last-child { margin-bottom: 0; }
+.about a { color: var(--card-gold); }
+.about strong { color: var(--card-text); }
+@media (max-width: 640px) { .about { flex-direction: column; } }
 
 @media (max-width: 600px) {
   .main { padding: 26px 16px 60px; }
