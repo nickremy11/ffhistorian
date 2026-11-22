@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Profile — FF Historian</title>
+<link rel="icon" href="https://ffhistorian.com/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="https://ffhistorian.com/favicon-32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="https://ffhistorian.com/apple-touch-icon.png" />
+<link href="https://fonts.googleapis.com/css2?family=Graduate&family=Bitter:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css?v=20261122" />
+<script>try{if(/(?:^|; )sh_theme=dark/.test(document.cookie)||localStorage.getItem("sh_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+<style>
+/* ffhistorian.com/profile — the ONE profile for every site (moved off helper,
+   which is just one tool; helper's /myprofile 301s here). Shared scripts and
+   styles still load from helper, and every API call goes there with the
+   .ffhistorian.com session cookie (credentialed CORS, see http.js getCors).
+   Everything on this page reads the CARD tokens directly (--card, --card-text,
+   --card-gold, --card-muted, --edge), so it is legible on the cream card in light
+   mode and the dark card in dark mode — no reliance on the surface remapping. */
+.banner-back { font-family: var(--font-display), serif; font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--gold-light); text-decoration: none; opacity: 0.85; display: inline-block; margin-bottom: 6px; }
+.banner-back:hover { opacity: 1; }
+.main { max-width: 1040px; margin: 0 auto; padding: 28px 24px 80px; }
+
+/* ── LAYOUT: side tabs + panel ── */
+.pf-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; }
+.pf-side { position: sticky; top: 20px; }
+.pf-who { padding: 4px 4px 16px; border-bottom: 2px solid var(--edge); margin-bottom: 12px; }
+.pf-who-name { font-family: var(--font-head), serif; font-weight: 700; font-size: 1.1rem; color: var(--ink); overflow-wrap: anywhere; }
+.pf-who-mail { font-family: var(--font-body), serif; font-size: 0.82rem; color: var(--brown-light); overflow-wrap: anywhere; margin-top: 2px; }
+.pf-tabs { display: flex; flex-direction: column; gap: 4px; }
+.pf-tab {
+  display: flex; flex-direction: column; gap: 2px; text-align: left; text-decoration: none;
+  padding: 10px 12px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; background: none;
+  color: var(--ink); font-family: var(--font-display), serif; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.pf-tab small { font-family: var(--font-body), serif; font-size: 0.78rem; letter-spacing: 0; text-transform: none; color: var(--brown-light); }
+.pf-tab:hover { background: rgba(var(--tint), 0.07); }
+.pf-tab.on { background: var(--sel-bg); color: var(--sel-fg); }
+.pf-tab.on small { color: var(--sel-fg); opacity: 0.85; }
+.pf-tab.danger { color: var(--c-red); }
+.pf-tab.danger.on { background: #a8321f; color: #fff; }
+.pf-tab.danger.on small { color: #fff; }
+
+.pf-panel { display: none; }
+.pf-panel.on { display: block; }
+.pf-panel-head { margin-bottom: 16px; }
+.pf-panel-head h2 { font-family: var(--font-display), serif; font-size: 1.35rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink); }
+.pf-panel-head p { font-family: var(--font-body), serif; font-size: 0.95rem; color: var(--brown-light); margin-top: 4px; line-height: 1.5; }
+.pf-panel-head a, .pf-note a { color: var(--gold); }
+
+/* ── CARDS ── */
+.pf-card {
+  background: var(--card); color: var(--card-text); border: 2px solid var(--edge); border-radius: 10px;
+  padding: 20px 22px; margin-bottom: 18px;
+}
+.pf-card h3 {
+  font-family: var(--font-display), serif; font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--card-text); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.pf-card h3 .pf-h-aside { margin-left: auto; font-family: var(--font-body), serif; font-size: 0.85rem; letter-spacing: 0; text-transform: none; }
+.pf-card h3 .pf-h-aside a { color: var(--card-gold); }
+.pf-card.danger { border-color: #a8321f; }
+.pf-card.danger h3 { color: var(--c-red); }
+
+.field-label {
+  font-family: var(--font-display), serif; font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--card-gold); display: block; margin-bottom: 7px;
+}
+.field-label-sub { font-family: var(--font-body), serif; font-size: 0.85rem; color: var(--card-muted); font-style: italic; margin-left: 6px; letter-spacing: 0; text-transform: none; }
+.field-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.field-row:last-child { margin-bottom: 0; }
+.field-input, .field-select, .field-area {
+  flex: 1 1 220px; min-width: 0; background: var(--page); border: 1.5px solid var(--card-muted);
+  color: var(--card-text); font-family: var(--font-body), serif; font-size: 1rem;
+  padding: 9px 12px; border-radius: 6px; outline: none;
+}
+.field-area { width: 100%; min-height: 150px; resize: vertical; line-height: 1.5; }
+.field-input:focus, .field-select:focus, .field-area:focus { border-color: var(--card-gold); box-shadow: 0 0 0 2px rgba(var(--tint), 0.12); }
+.field-input::placeholder, .field-area::placeholder { color: var(--card-muted); opacity: 0.8; font-style: italic; }
+.field-input:read-only { background: transparent; border-style: dashed; cursor: default; }
+
+.pf-btn {
+  background: var(--ink-bg); border: 2px solid var(--ink-bg); color: var(--ink-fg); border-radius: 6px;
+  font-family: var(--font-display), serif; font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 10px 18px; cursor: pointer; white-space: nowrap;
+}
+.pf-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.pf-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pf-btn.ghost { background: var(--card); color: var(--card-text); border-color: var(--edge); }
+.pf-btn.ghost:hover:not(:disabled) { background: var(--card-hover); color: var(--card-text); border-color: var(--edge); }
+.pf-btn.sm { padding: 6px 12px; font-size: 0.62rem; }
+.danger-btn { font-family: var(--font-display), serif; font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase; padding: 10px 18px; cursor: pointer; white-space: nowrap; }
+
+.field-status { font-family: var(--font-body), serif; font-size: 0.88rem; font-style: italic; color: var(--card-muted); min-height: 20px; margin-top: 6px; }
+.field-status.ok  { color: var(--c-green); }
+.field-status.err { color: var(--c-red); }
+.field-divider { border: none; border-top: 1px solid var(--rule-in); margin: 18px 0; }
+.field-hint, .pf-note { font-family: var(--font-body), serif; font-size: 0.9rem; color: var(--card-muted); line-height: 1.6; margin: 0 0 10px; }
+.field-hint a, .pf-card a { color: var(--card-gold); }
+.field-hint code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.85em;
+  background: rgba(var(--tint),0.08); border: 1px solid var(--rule-in); color: var(--card-text);
+  border-radius: 4px; padding: 1px 5px;
+}
+.pf-ok { color: var(--c-green); font-family: var(--font-body), serif; font-size: 0.95rem; margin-bottom: 10px; }
+
+/* ── ESPN DISCOVERY ── */
+.disc-box { border: 1.5px solid var(--rule-in); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
+.disc-head { font-family: var(--font-display), serif; font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--card-gold); margin-bottom: 10px; }
+.disc-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-family: var(--font-body), serif; font-size: 0.95rem; }
+.disc-row input { accent-color: var(--card-gold); width: 16px; height: 16px; cursor: pointer; }
+.disc-row label { cursor: pointer; flex: 1; }
+.disc-meta { color: var(--card-muted); font-style: italic; font-size: 0.85rem; }
+.disc-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ── CONTENDING TABLE ── */
+.ct-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.ct-pill { background: var(--card); border: 2px solid var(--edge); color: var(--card-text); border-radius: 999px; padding: 5px 12px;
+  font-family: var(--font-body), serif; font-size: 0.85rem; cursor: pointer; }
+.ct-pill.on { background: var(--sel-bg); border-color: var(--sel-bg); color: var(--sel-fg); }
+.ct-search { flex: 1 1 180px; max-width: 260px; }
+.ct-sum { font-family: var(--font-body), serif; font-size: 0.9rem; color: var(--card-muted); margin-left: auto; }
+.ct-sum strong { color: var(--card-text); }
+.ct-table { width: 100%; border-collapse: collapse; font-family: var(--font-body), serif; }
+.ct-table th { text-align: left; font-family: var(--font-display), serif; font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-fg); background: var(--ink-bg); padding: 9px 10px; }
+.ct-table th.c, .ct-table td.c { text-align: center; }
+.ct-table td { padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.ct-table tr.on td { background: rgba(240,185,58,0.14); }
+.ct-table tr.on td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
+.ct-name { font-weight: 600; color: var(--card-text); }
+.ct-meta { font-size: 0.8rem; color: var(--card-muted); margin-top: 2px; }
+.ct-tag { display: inline-block; font-size: 0.7rem; padding: 0 6px; border-radius: 4px; border: 1px solid var(--card-muted); color: var(--card-muted); margin-left: 6px; vertical-align: 1px; }
+.ct-check { width: 20px; height: 20px; accent-color: var(--card-gold); cursor: pointer; }
+.ct-val { width: 96px; flex: none; padding: 6px 8px; font-size: 0.95rem; text-align: right; }
+.ct-val-wrap { display: inline-flex; align-items: center; gap: 4px; color: var(--card-muted); }
+
+/* ── HELP ── */
+.help-kinds { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* ── GUEST ── */
+.guest-card { background: var(--card); color: var(--card-text); border: 2px solid var(--edge); border-radius: 10px; padding: 36px; text-align: center; margin: 48px auto 0; max-width: 520px; }
+.guest-card p { font-family: var(--font-head), serif; font-style: italic; font-size: 1.1rem; margin-bottom: 20px; }
+
+footer { padding: 32px 0 20px; }
+
+@media (max-width: 820px) {
+  .main { padding: 18px 16px 60px; }
+  .pf-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .pf-layout > * { min-width: 0; }
+  .pf-side { position: static; }
+  .pf-who { display: none; }
+  .pf-tabs { flex-direction: row; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
+  .pf-tab { flex: none; padding: 8px 12px; }
+  .pf-tab small { display: none; }
+  .pf-card { padding: 16px; }
+  .ct-table th:nth-child(1) { width: auto; }
+  .ct-val { width: 74px; }
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <header class="banner">
+    <div class="banner-inner">
+      <div class="banner-text">
+        <a href="/" class="banner-back">← FF Historian</a>
+        <h1>My <span>Profile</span></h1>
+        <div class="banner-sub">Account, connections &amp; league settings</div>
+        <div class="banner-divider"></div>
+      </div>
+      <div id="auth-chip" style="flex-shrink:0;"></div>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <div id="guest-view" style="display:none;">
+      <div class="guest-card">
+        <p>Sign in to view and edit your profile.</p>
+        <button class="pf-btn" onclick="SharedAuth.openModal()">Sign In</button>
+        <p class="pf-note" style="margin-top:18px;font-style:normal;font-size:0.9rem;">Need help? <a href="#help" onclick="showGuestHelp();return false;">Contact support</a></p>
+      </div>
+      <div id="guest-help" style="display:none;max-width:640px;margin:24px auto 0;"></div>
+    </div>
+
+    <div id="profile-view" class="pf-layout" style="display:none;">
+
+      <aside class="pf-side">
+        <div class="pf-who">
+          <div class="pf-who-name" id="who-name"></div>
+          <div class="pf-who-mail" id="who-mail"></div>
+        </div>
+        <nav class="pf-tabs" aria-label="Profile sections">
+          <a class="pf-tab" href="#account"     data-tab="account">Account<small>Name &amp; email</small></a>
+          <a class="pf-tab" href="#connections" data-tab="connections">Connections<small>Sleeper &amp; ESPN</small></a>
+          <a class="pf-tab" href="#contending"  data-tab="contending">Contending<small>Which leagues you're chasing</small></a>
+          <a class="pf-tab" href="#security"    data-tab="security">Sign-in &amp; Security<small>Password, Google</small></a>
+          <a class="pf-tab" href="#help"        data-tab="help">Help &amp; Feedback<small>Questions, ideas, bugs</small></a>
+          <a class="pf-tab danger" href="#delete" data-tab="delete">Delete Account<small>Remove everything</small></a>
+        </nav>
+      </aside>
+
+      <section>
+
+        <!-- ACCOUNT -->
+        <div class="pf-panel" data-panel="account">
+          <div class="pf-panel-head"><h2>Account</h2><p>How you appear across FF Historian.</p></div>
+          <div class="pf-card">
+            <label class="field-label" for="field-email">Email <span class="field-label-sub">— cannot be changed</span></label>
+            <div class="field-row"><input type="email" id="field-email" class="field-input" readonly /></div>
+            <hr class="field-divider" />
+            <label class="field-label" for="field-name">Display Name <span class="field-label-sub">— shown instead of your email when you're signed in</span></label>
+            <div class="field-row">
+              <input type="text" id="field-name" class="field-input" placeholder="Your name…" maxlength="64" />
+              <button class="pf-btn" onclick="saveName()">Save</button>
+            </div>
+            <div class="field-status" id="name-status"></div>
+          </div>
+        </div>
+
+        <!-- CONNECTIONS -->
+        <div class="pf-panel" data-panel="connections">
+          <div class="pf-panel-head"><h2>Connections</h2><p>Link your fantasy platforms so every tool can find your leagues.</p></div>
+
+          <div class="pf-card">
+            <h3>Sleeper</h3>
+            <label class="field-label" for="field-username">Sleeper Username</label>
+            <div class="field-row">
+              <input type="text" id="field-username" class="field-input" placeholder="your sleeper username…" autocomplete="off" spellcheck="false" />
+              <button class="pf-btn" onclick="saveUsername()">Save</button>
+            </div>
+            <div class="field-status" id="username-status"></div>
+            <hr class="field-divider" />
+            <label class="field-label">Auth Token <span class="field-label-sub">— enables pending trades, sending offers and applying lineups</span></label>
+            <div id="token-saved-row" style="display:none;">
+              <div class="pf-ok">✔ Token saved to your account</div>
+              <button class="pf-btn ghost sm" onclick="showReplaceToken()">Replace token</button>
+            </div>
+            <div id="token-input-row">
+              <div class="field-hint">
+                Signed in to <a href="https://sleeper.com" target="_blank" rel="noopener">sleeper.com</a> on a computer, press <code>F12</code> → <strong>Network</strong> tab → filter for <code>graphql</code> → click any request and copy the whole <code>authorization</code> value under Request Headers.
+              </div>
+              <div class="field-row">
+                <input type="password" id="field-token" class="field-input" placeholder="paste your token here…" />
+                <button class="pf-btn" onclick="saveToken()">Save</button>
+              </div>
+              <div class="field-status" id="token-status"></div>
+            </div>
+          </div>
+
+          <div class="pf-card">
+            <h3>ESPN <span class="pf-h-aside"><a href="https://helper.ffhistorian.com/espn-setup">How to connect ESPN →</a></span></h3>
+            <p class="field-hint">Paste your two ESPN cookies, hit <strong>Save</strong>, then <strong>Find my leagues</strong> — the league IDs fill themselves in.</p>
+            <label class="field-label" for="field-espn-ids">League IDs <span class="field-label-sub">— comma-separated; Find my leagues fills these</span></label>
+            <div class="field-row">
+              <input type="text" id="field-espn-ids" class="field-input" placeholder="e.g. 12345, 67890…" />
+              <button class="pf-btn ghost" id="btn-espn-discover" onclick="discoverEspnLeagues()">Find my leagues</button>
+            </div>
+            <div id="espn-discovered"></div>
+            <label class="field-label" for="field-espn-s2">espn_s2 Cookie</label>
+            <div class="field-row"><input type="password" id="field-espn-s2" class="field-input" placeholder="espn_s2 cookie value from browser DevTools…" /></div>
+            <label class="field-label" for="field-espn-swid">SWID Cookie</label>
+            <div class="field-row"><input type="text" id="field-espn-swid" class="field-input" placeholder="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}…" /></div>
+            <div class="field-row"><button class="pf-btn" onclick="saveEspnSettings()">Save ESPN</button></div>
+            <div class="field-status" id="espn-status"></div>
+          </div>
+        </div>
+
+        <!-- CONTENDING -->
+        <div class="pf-panel" data-panel="contending">
+          <div class="pf-panel-head">
+            <h2>Contending Leagues</h2>
+            <p>Tick the leagues you're trying to win this year, and what's at stake in each. <a href="https://helper.ffhistorian.com/rootforme">Root For Me</a>, the <a href="https://helper.ffhistorian.com/scoreboard">Scoreboard</a>, the Monday Night Miracle, League Summaries and Scout all read this list. Changes save as you make them.</p>
+          </div>
+          <div class="pf-card" id="ct-card">
+            <div class="field-status">Loading your leagues…</div>
+          </div>
+        </div>
+
+        <!-- SECURITY -->
+        <div class="pf-panel" data-panel="security">
+          <div class="pf-panel-head"><h2>Sign-in &amp; Security</h2><p>The ways you can sign in, and your password.</p></div>
+
+          <div class="pf-card" id="google-card" style="display:none;">
+            <h3>Google</h3>
+            <div id="google-body"></div>
+          </div>
+
+          <div class="pf-card">
+            <h3>Password</h3>
+            <div id="pw-none" style="display:none;">
+              <p class="pf-note">Your account signs in with Google and has no password yet. Want one too? We'll email you a link to set it.</p>
+              <div class="field-row"><button class="pf-btn" onclick="sendSetPasswordLink()">Email me a link</button></div>
+              <div class="field-status" id="pwlink-status"></div>
+            </div>
+            <div id="pw-change">
+              <label class="field-label" for="field-cur-pass">Current Password</label>
+              <div class="field-row"><input type="password" id="field-cur-pass" class="field-input" placeholder="••••••••" autocomplete="current-password" /></div>
+              <label class="field-label" for="field-new-pass">New Password</label>
+              <div class="field-row"><input type="password" id="field-new-pass" class="field-input" placeholder="min 12 chars, uppercase, lowercase, number, symbol" autocomplete="new-password" /></div>
+              <label class="field-label" for="field-new-pass2">Confirm New Password</label>
+              <div class="field-row"><input type="password" id="field-new-pass2" class="field-input" placeholder="••••••••" autocomplete="new-password" /></div>
+              <div class="field-row"><button class="pf-btn" onclick="changePassword()">Change Password</button></div>
+              <p class="pf-note" style="margin-top:10px;">Changing it signs you out everywhere else.</p>
+              <div class="field-status" id="password-status"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HELP -->
+        <div class="pf-panel" data-panel="help">
+          <div class="pf-panel-head"><h2>Help &amp; Feedback</h2><p>Stuck, spotted a bug, or have an idea? Send it here — it goes straight to the person who builds this, and the reply comes to your email.</p></div>
+          <div id="help-mount"></div>
+        </div>
+
+        <!-- DELETE -->
+        <div class="pf-panel" data-panel="delete">
+          <div class="pf-panel-head"><h2>Delete Account</h2></div>
+          <div class="pf-card danger">
+            <h3>Danger Zone</h3>
+            <p class="pf-note">Permanently deletes your account and everything saved to it — ESPN credentials, Sleeper token, contending leagues, rankings, ROI ledger. This cannot be undone.</p>
+            <div id="del-pass-row">
+              <label class="field-label" for="field-delete-pass">Confirm Password</label>
+              <div class="field-row">
+                <input type="password" id="field-delete-pass" class="field-input" placeholder="••••••••" autocomplete="current-password" />
+                <button class="danger-btn" onclick="deleteAccount()">Delete Account</button>
+              </div>
+            </div>
+            <div id="del-word-row" style="display:none;">
+              <label class="field-label" for="field-delete-word">Type DELETE to confirm</label>
+              <div class="field-row">
+                <input type="text" id="field-delete-word" class="field-input" placeholder="DELETE" autocomplete="off" />
+                <button class="danger-btn" onclick="deleteAccount()">Delete Account</button>
+              </div>
+            </div>
+            <div class="field-status" id="delete-status"></div>
+          </div>
+        </div>
+
+      </section>
+    </div><!-- /profile-view -->
+
+    <footer>
+      <a href="/">FF Historian</a> · <a href="https://helper.ffhistorian.com">League Assist</a> · <a href="https://myranks.ffhistorian.com">My Ranks</a> · <a href="/getting-started/">Getting Started</a>
+    </footer>
+  </div>
+</div>
+
+<script src="https://helper.ffhistorian.com/shared-core.js?v=20261117"></script>
+<script src="https://helper.ffhistorian.com/shared-auth.js?v=20261124"></script>
+<script src="https://helper.ffhistorian.com/shared-utils.js?v=20261124"></script>
+<script>
+let USER = null;
+let PROVIDERS = [];
+
+// ── Tabs (the URL hash is the tab, so /profile/#contending can be linked) ──
+const PF_TABS = ['account', 'connections', 'contending', 'security', 'help', 'delete'];
+function pfTab() {
+  const h = (location.hash || '').slice(1);
+  return PF_TABS.includes(h) ? h : 'account';
+}
+function pfShowTab() {
+  const t = pfTab();
+  document.querySelectorAll('.pf-tab').forEach(a => {
+    const on = a.dataset.tab === t;
+    a.classList.toggle('on', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    // Phone width: the tabs are one scrolling row — keep the chosen one in view.
+    if (on && a.parentNode.scrollWidth > a.parentNode.clientWidth) {
+      a.parentNode.scrollLeft = a.offsetLeft - (a.parentNode.clientWidth - a.offsetWidth) / 2;
+    }
+  });
+  document.querySelectorAll('.pf-panel').forEach(p => p.classList.toggle('on', p.dataset.panel === t));
+  if (t === 'contending' && USER) ctEnsure();
+}
+window.addEventListener('hashchange', pfShowTab);
+
+// ── Populate ──
+function populateFields(user) {
+  USER = user;
+  document.getElementById('field-email').value    = user.email || '';
+  document.getElementById('field-name').value     = user.name  || '';
+  document.getElementById('field-username').value = user.sleeper_username || '';
+  document.getElementById('who-name').textContent = user.name || user.sleeper_username || 'Your account';
+  document.getElementById('who-mail').textContent = user.email || '';
+  updateTokenRow(user.has_token);
+  const noPw = user.has_password === false;
+  document.getElementById('pw-none').style.display    = noPw ? '' : 'none';
+  document.getElementById('pw-change').style.display  = noPw ? 'none' : '';
+  document.getElementById('del-pass-row').style.display = noPw ? 'none' : '';
+  document.getElementById('del-word-row').style.display = noPw ? '' : 'none';
+  drawGoogle();
+  drawHelp('help-mount');
+  loadEspnSettings();
+}
+
+function setStatus(id, msg, isOk, keep) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = 'field-status ' + (isOk ? 'ok' : 'err');
+  if (msg && !keep) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 5000);
+}
+
+async function apiPatch(body) {
+  const r = await fetch(SH_API + '/auth/me', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error);
+  return d;
+}
+
+// ── Account ──
+async function saveName() {
+  const val = document.getElementById('field-name').value.trim();
+  try {
+    await apiPatch({ name: val });
+    USER.name = val || null;
+    document.getElementById('who-name').textContent = val || USER.sleeper_username || 'Your account';
+    setStatus('name-status', 'Saved', true);
+  } catch (e) { setStatus('name-status', e.message, false); }
+}
+
+// ── Sleeper ──
+async function saveUsername() {
+  const val = document.getElementById('field-username').value.trim();
+  try {
+    await apiPatch({ sleeper_username: val || null });
+    USER.sleeper_username = val || null;
+    CT.loaded = false;               // the contending list follows the username
+    setStatus('username-status', 'Saved', true);
+  } catch (e) { setStatus('username-status', e.message, false); }
+}
+function updateTokenRow(hasToken) {
+  document.getElementById('token-saved-row').style.display = hasToken ? '' : 'none';
+  document.getElementById('token-input-row').style.display = hasToken ? 'none' : '';
+}
+function showReplaceToken() {
+  updateTokenRow(false);
+  document.getElementById('field-token').value = '';
+  document.getElementById('token-status').textContent = '';
+}
+async function saveToken() {
+  const val = document.getElementById('field-token').value.trim();
+  if (!val) { setStatus('token-status', 'Paste your token first', false); return; }
+  try {
+    await apiPatch({ token: val });
+    document.getElementById('field-token').value = '';
+    updateTokenRow(true);
+  } catch (e) { setStatus('token-status', e.message, false); }
+}
+
+// ── ESPN ──
+async function loadEspnSettings() {
+  try {
+    const r = await fetch(SH_API + '/espn/settings', { credentials: 'include' });
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('field-espn-ids').value = (d.league_ids || []).join(', ');
+    if (d.has_credentials) setStatus('espn-status', 'ESPN credentials saved', true, true);
+  } catch {}
+}
+async function saveEspnSettings() {
+  const ids  = (document.getElementById('field-espn-ids').value || '')
+    .split(',').map(s => s.trim()).filter(Boolean).map(Number).filter(n => n > 0);
+  const s2   = document.getElementById('field-espn-s2').value.trim();
+  const swid = document.getElementById('field-espn-swid').value.trim();
+  setStatus('espn-status', 'Saving…', true, true);
+  try {
+    const r = await fetch(SH_API + '/espn/settings', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ league_ids: ids, espn_s2: s2, swid }),
+    });
+    if (!r.ok) throw new Error('Server error');
+    document.getElementById('field-espn-s2').value   = '';
+    document.getElementById('field-espn-swid').value = '';
+    CT.loaded = false;
+    setStatus('espn-status', 'Saved', true);
+    loadEspnSettings();
+  } catch (e) { setStatus('espn-status', e.message, false); }
+}
+// Asks the worker to list every football league this ESPN account can read.
+// Cookies typed but not yet saved are sent along, so it doubles as a test.
+async function discoverEspnLeagues() {
+  const btn = document.getElementById('btn-espn-discover');
+  const box = document.getElementById('espn-discovered');
+  const s2   = document.getElementById('field-espn-s2').value.trim();
+  const swid = document.getElementById('field-espn-swid').value.trim();
+  box.innerHTML = '';
+  btn.disabled = true;
+  setStatus('espn-status', 'Asking ESPN which leagues you are in…', true, true);
+  try {
+    const r = await fetch(SH_API + '/espn/discover', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(s2 && swid ? { espn_s2: s2, swid } : {}),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Could not reach ESPN');
+    if (!d.leagues?.length) {
+      setStatus('espn-status', 'No ESPN football leagues found for ' + d.season + '. Add the league IDs by hand — see the setup guide.', false, true);
+      return;
+    }
+    const have = new Set((document.getElementById('field-espn-ids').value || '').split(',').map(x => x.trim()).filter(Boolean));
+    box.innerHTML = `<div class="disc-box">
+      <div class="disc-head">Found ${d.leagues.length} league${d.leagues.length === 1 ? '' : 's'} · ${d.season}</div>
+      ${d.leagues.map(lg => `<div class="disc-row">
+        <input type="checkbox" id="disc-${lg.id}" value="${lg.id}" checked />
+        <label for="disc-${lg.id}">${esc(lg.name)}
+          <span class="disc-meta">— ${lg.size ? lg.size + ' teams · ' : ''}ID ${lg.id}${have.has(String(lg.id)) ? ' · already added' : ''}</span>
+        </label>
+      </div>`).join('')}
+      <div class="disc-actions">
+        <button class="pf-btn" onclick="applyDiscovered()">Add checked &amp; save</button>
+        <button class="pf-btn ghost" onclick="document.getElementById('espn-discovered').innerHTML=''">Dismiss</button>
+      </div>
+    </div>`;
+    setStatus('espn-status', 'Pick the leagues you want, then Add checked & save.', true, true);
+  } catch (e) {
+    setStatus('espn-status', e.message, false, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+function applyDiscovered() {
+  const picked = [...document.querySelectorAll('#espn-discovered input[type=checkbox]:checked')].map(c => c.value);
+  const cur = (document.getElementById('field-espn-ids').value || '').split(',').map(x => x.trim()).filter(Boolean);
+  document.getElementById('field-espn-ids').value = [...new Set([...cur, ...picked])].join(', ');
+  document.getElementById('espn-discovered').innerHTML = '';
+  saveEspnSettings();
+}
+
+// ── Contending leagues ─────────────────────────────────────────────────────
+// Every Sleeper league for the saved username plus every linked ESPN league,
+// each with Root For Me's two prefs: contending? and the $ at stake. Stored in
+// league_preferences (POST /api/rootforme/prefs upserts per league).
+const CT = { loaded: false, loading: false, leagues: [], prefs: {}, filter: 'all', q: '', pending: {}, timer: null, err: '' };
+
+async function ctEnsure() {
+  if (CT.loaded || CT.loading) return;
+  CT.loading = true;
+  ctDraw();
+  CT.err = '';
+  const leagues = [];
+  const notes = [];
+  try {
+    const state  = await fetch(`${SH_API}/sleeper/state/nfl`).then(r => r.json()).catch(() => ({}));
+    const season = state.league_create_season || state.season || String(new Date().getFullYear());
+    const prefsP = loadStoredLeaguePrefs(true);
+    if (USER.sleeper_username) {
+      try {
+        const u = await fetch(`${SH_API}/sleeper/user/${encodeURIComponent(USER.sleeper_username)}`).then(r => r.json());
+        if (!u?.user_id) throw new Error();
+        const list = await fetch(`${SH_API}/sleeper/user/${u.user_id}/leagues/nfl/${season}`).then(r => r.json());
+        for (const lg of list || []) leagues.push({
+          id: lg.league_id, name: lg.name || 'Unnamed league', source: 'sleeper', teams: lg.total_rosters,
+          fmt: lg.settings?.best_ball === 1 ? 'Best Ball' : leagueFormatLabel(lg),
+          dynasty: leagueIsDynasty(lg),
+        });
+      } catch { notes.push(`Couldn't read Sleeper leagues for “${USER.sleeper_username}”.`); }
+    } else {
+      notes.push('No Sleeper username saved — add it under <a href="#connections">Connections</a>.');
+    }
+    try {
+      const cfg = await fetch(`${SH_API}/espn/settings`, { credentials: 'include' }).then(r => r.ok ? r.json() : null);
+      if (cfg?.has_credentials && cfg.league_ids?.length) {
+        await Promise.all(cfg.league_ids.map(async id => {
+          try {
+            const d = await fetch(`${SH_API}/espn/fantasy/${id}?view=mSettings&view=mTeam&seasonId=${season}`, { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.reject());
+            leagues.push({ id: `espn_${id}`, name: d.settings?.name || `ESPN ${id}`, source: 'espn', teams: d.teams?.length || d.settings?.size, fmt: 'Redraft', dynasty: false });
+          } catch { notes.push(`ESPN league ${esc(String(id))} couldn't be read.`); }
+        }));
+      }
+    } catch {}
+    CT.prefs = await prefsP;
+    CT.leagues = leagues;
+    CT.notes = notes;
+    CT.loaded = true;
+  } catch (e) {
+    CT.err = 'Could not load your leagues — try again.';
+  }
+  CT.loading = false;
+  ctDraw();
+}
+
+function ctRole(id) {
+  const p = CT.prefs[id];
+  return !p ? null : p.contender ? 'contender' : 'rebuilder';
+}
+
+function ctDraw() {
+  const card = document.getElementById('ct-card');
+  if (!card) return;
+  if (CT.loading) { card.innerHTML = '<div class="field-status">Loading your leagues…</div>'; return; }
+  if (CT.err) { card.innerHTML = `<div class="field-status err">${CT.err}</div><button class="pf-btn ghost sm" onclick="CT.loaded=false;ctEnsure()">Retry</button>`; return; }
+  const notes = (CT.notes || []).map(n => `<p class="pf-note">${n}</p>`).join('');
+  if (!CT.leagues.length) { card.innerHTML = notes + '<p class="pf-note">No leagues found for this season.</p>'; return; }
+
+  const q = CT.q.toLowerCase();
+  const rows = CT.leagues
+    .filter(lg => CT.filter === 'all' || (CT.filter === 'dynasty' ? lg.dynasty : !lg.dynasty))
+    .filter(lg => !q || lg.name.toLowerCase().includes(q));
+  const contending = CT.leagues.filter(lg => ctRole(lg.id) === 'contender');
+  const stake = contending.reduce((a, lg) => a + (+CT.prefs[lg.id]?.value || 0), 0);
+  const unset = CT.leagues.filter(lg => !ctRole(lg.id)).length;
+  const pill = (k, l) => `<button class="ct-pill${CT.filter === k ? ' on' : ''}" onclick="CT.filter='${k}';ctDraw()">${l}</button>`;
+
+  card.innerHTML = `${notes}
+    <div class="ct-tools">
+      ${pill('all', 'All')}${pill('dynasty', 'Dynasty')}${pill('redraft', 'Redraft')}
+      <input class="field-input ct-search" id="ct-q" placeholder="Search leagues…" value="${esc(CT.q)}" oninput="CT.q=this.value;ctDraw();ctRefocus()" />
+      <span class="ct-sum"><strong>${contending.length}</strong> of ${CT.leagues.length} contending${stake ? ` · <strong>$${stake.toLocaleString()}</strong> at stake` : ''}${unset ? ` · ${unset} not set` : ''}</span>
+    </div>
+    <div style="overflow-x:auto;">
+    <table class="ct-table">
+      <thead><tr><th>League</th><th class="c">Contending</th><th class="c">$ at stake</th></tr></thead>
+      <tbody>${rows.map(lg => {
+        const p = CT.prefs[lg.id];
+        const on = p?.contender === true;
+        return `<tr class="${on ? 'on' : ''}">
+          <td><div class="ct-name">${esc(lg.name)}${p ? '' : '<span class="ct-tag">not set</span>'}</div>
+              <div class="ct-meta">${lg.source === 'espn' ? 'ESPN · ' : ''}${esc(lg.fmt)}${lg.teams ? ` · ${lg.teams} teams` : ''}</div></td>
+          <td class="c"><input type="checkbox" class="ct-check" ${on ? 'checked' : ''} aria-label="Contending in ${esc(lg.name)}"
+                onchange="ctSet(${jsArg(lg.id)}, {contender: this.checked})" /></td>
+          <td class="c"><span class="ct-val-wrap">$<input type="number" min="0" step="1" class="field-input ct-val" placeholder="0" value="${p?.value || ''}"
+                aria-label="Dollars at stake in ${esc(lg.name)}" onchange="ctSet(${jsArg(lg.id)}, {value: Math.max(0, +this.value || 0)})" /></span></td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="3" class="pf-note">No leagues match.</td></tr>'}</tbody>
+    </table></div>
+    <p class="pf-note" style="margin-top:12px;">A league you haven't set counts as contending in Root For Me. The $ is what you'd win (or have riding on it) — Root For Me weighs who to cheer for by it.</p>
+    <div class="field-status" id="ct-status"></div>`;
+}
+function ctRefocus() {
+  const el = document.getElementById('ct-q');
+  if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+}
+
+// A $ typed into a league that was never set marks it contending — putting
+// money on a league is a reason to root for it (and matches Root For Me's default).
+function ctSet(id, patch) {
+  const cur = CT.prefs[id] || { value: 0, contender: true };
+  CT.prefs[id] = { ...cur, ...patch };
+  CT.pending[id] = CT.prefs[id];
+  ctDraw();
+  setStatus('ct-status', 'Saving…', true, true);
+  clearTimeout(CT.timer);
+  CT.timer = setTimeout(ctFlush, 500);
+}
+async function ctFlush() {
+  const batch = CT.pending;
+  CT.pending = {};
+  if (!Object.keys(batch).length) return;
+  try {
+    const r = await fetch(`${SH_API}/rootforme/prefs`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefs: batch }),
+    });
+    if (!r.ok) throw new Error();
+    setStatus('ct-status', 'Saved ✓', true);
+  } catch {
+    Object.assign(CT.pending, batch);   // keep them for the next try
+    setStatus('ct-status', 'Could not save — will retry on your next change.', false, true);
+  }
+}
+window.addEventListener('beforeunload', () => { if (Object.keys(CT.pending).length) ctFlush(); });
+
+// ── Google ──
+function drawGoogle() {
+  const card = document.getElementById('google-card');
+  const linked = (USER.providers || []).includes('google');
+  if (!PROVIDERS.includes('google') && !linked) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const startUrl = `https://ffhistorian.com/auth/google/start?next=${encodeURIComponent('https://ffhistorian.com/profile/#security')}`;
+  document.getElementById('google-body').innerHTML = linked
+    ? `<div class="pf-ok">✔ Linked — you can sign in with Google.</div>`
+    : `<p class="pf-note">Sign in with one click. Linking works when your Google account uses <strong>${esc(USER.email)}</strong> — the same email as this account.</p>
+       <a class="pf-btn ghost" href="${startUrl}" style="display:inline-block;text-decoration:none;">Link Google</a>`;
+}
+
+// ── Password ──
+async function changePassword() {
+  const cur = document.getElementById('field-cur-pass').value;
+  const nw  = document.getElementById('field-new-pass').value;
+  const nw2 = document.getElementById('field-new-pass2').value;
+  if (!cur || !nw) { setStatus('password-status', 'All fields are required', false); return; }
+  if (nw !== nw2)  { setStatus('password-status', 'New passwords do not match', false); return; }
+  try {
+    const r = await fetch(SH_API + '/auth/change-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ currentPassword: cur, newPassword: nw }),
+    });
+    await SharedAuth.readAuthResponse(r, SH_API + '/auth/change-password');
+    ['field-cur-pass', 'field-new-pass', 'field-new-pass2'].forEach(id => document.getElementById(id).value = '');
+    setStatus('password-status', 'Password changed', true);
+  } catch (e) { setStatus('password-status', e.message, false); }
+}
+async function sendSetPasswordLink() {
+  try {
+    const r = await fetch(SH_API + '/auth/forgot-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ email: USER.email }),
+    });
+    await SharedAuth.readAuthResponse(r, SH_API + '/auth/forgot-password');
+    setStatus('pwlink-status', `Sent — check ${USER.email} for the link.`, true, true);
+  } catch (e) { setStatus('pwlink-status', e.message, false); }
+}
+
+// ── Help & feedback (POST /api/feedback → emailed to the site owner) ──
+let HELP_KIND = 'help';
+function drawHelp(mountId) {
+  const signedIn = !!USER;
+  document.getElementById(mountId).innerHTML = `<div class="pf-card">
+    <div class="help-kinds" role="group" aria-label="What is this about">
+      ${[['help', 'I need help'], ['feedback', 'Feedback / idea'], ['bug', 'Something is broken']].map(([k, l]) =>
+        `<button class="ct-pill${HELP_KIND === k ? ' on' : ''}" onclick="HELP_KIND='${k}';this.parentNode.querySelectorAll('.ct-pill').forEach(b=>b.classList.toggle('on',b===this))">${l}</button>`).join('')}
+    </div>
+    ${signedIn ? '' : `<label class="field-label" for="help-email">Your email</label>
+      <div class="field-row"><input type="email" id="help-email" class="field-input" placeholder="so we can reply" /></div>`}
+    <label class="field-label" for="help-msg">Message</label>
+    <textarea id="help-msg" class="field-area" maxlength="5000" placeholder="What happened, or what would you like? Which page and league helps a lot."></textarea>
+    <div class="field-row" style="margin-top:12px;align-items:center;">
+      <button class="pf-btn" id="help-send" onclick="sendHelp()">Send</button>
+      ${signedIn ? `<span class="pf-note" style="margin:0;">Replies go to ${esc(USER.email)}</span>` : ''}
+    </div>
+    <div class="field-status" id="help-status"></div>
+    <p class="pf-note" style="margin:12px 0 0;">Prefer email? Write to <a href="mailto:support@ffhistorian.com">support@ffhistorian.com</a>.</p>
+  </div>`;
+}
+async function sendHelp() {
+  const btn = document.getElementById('help-send');
+  const message = document.getElementById('help-msg').value.trim();
+  const email = document.getElementById('help-email')?.value.trim();
+  btn.disabled = true;
+  setStatus('help-status', 'Sending…', true, true);
+  try {
+    const r = await fetch(SH_API + '/feedback', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: HELP_KIND, message, email, page: document.referrer || location.href }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Could not send');
+    document.getElementById('help-msg').value = '';
+    setStatus('help-status', 'Sent — thanks! You\'ll hear back by email.', true, true);
+  } catch (e) { setStatus('help-status', e.message, false, true); }
+  finally { btn.disabled = false; }
+}
+function showGuestHelp() {
+  const box = document.getElementById('guest-help');
+  box.style.display = '';
+  drawHelp('guest-help');
+}
+
+// ── Delete ──
+async function deleteAccount() {
+  const noPw = USER.has_password === false;
+  const pass = document.getElementById('field-delete-pass').value;
+  const word = document.getElementById('field-delete-word').value;
+  if (!noPw && !pass) { setStatus('delete-status', 'Enter your password to confirm', false); return; }
+  if (noPw && word.trim().toUpperCase() !== 'DELETE') { setStatus('delete-status', 'Type DELETE to confirm', false); return; }
+  if (!confirm('Permanently delete your account and all saved data? This cannot be undone.')) return;
+  try {
+    const r = await fetch(SH_API + '/auth/delete-account', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify(noPw ? { confirm: word } : { password: pass }),
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    location.href = '/';
+  } catch (e) { setStatus('delete-status', e.message, false); }
+}
+
+// ── Start ──
+function showProfile(user) {
+  document.getElementById('guest-view').style.display   = 'none';
+  document.getElementById('profile-view').style.display = '';
+  populateFields(user);
+  pfShowTab();
+}
+function showGuest() {
+  USER = null;
+  document.getElementById('guest-view').style.display   = '';
+  document.getElementById('profile-view').style.display = 'none';
+  if (pfTab() === 'help') showGuestHelp();
+}
+
+(async function init() {
+  fetch(SH_API + '/oauth/providers').then(r => r.ok ? r.json() : {}).then(d => {
+    PROVIDERS = d.providers || [];
+    if (USER) drawGoogle();
+  }).catch(() => {});
+  const user = await SharedAuth.init({
+    chipContainerId: 'auth-chip',
+    onLogin:  u => showProfile(u),
+    onLogout: () => showGuest(),
+  });
+  if (user) showProfile(user);
+  else {
+    showGuest();
+    if (pfTab() !== 'help') SharedAuth.openModal();
+  }
+})();
+</script>
+</body>
+</html>

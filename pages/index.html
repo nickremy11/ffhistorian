@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" href="https://ffhistorian.com/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="https://ffhistorian.com/favicon-32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="https://ffhistorian.com/apple-touch-icon.png" />
 <title>The Record Book — FF Historian</title>
 <!-- One look for every FF Historian site: League Assist's shared stylesheet. -->
 <link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css?v=20261122" />
@@ -238,7 +241,7 @@ async function loadMine() {
     if (d.noUsername || d.badUsername) {
       RB.mine = [];
       RB.mineMsg = `${d.badUsername ? `Sleeper doesn't know the username “${escH(d.badUsername)}”.` : "No Sleeper username on your account."}
-        Add it on <a href="https://helper.ffhistorian.com/myprofile">your profile</a> to list your leagues here.`;
+        Add it on <a href="https://ffhistorian.com/profile/">your profile</a> to list your leagues here.`;
     } else {
       RB.mine = d.leagues.sort((a, b) => a.name.localeCompare(b.name));
       RB.mineMsg = "";

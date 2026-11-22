@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" href="https://ffhistorian.com/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="https://ffhistorian.com/favicon-32.png" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="https://ffhistorian.com/apple-touch-icon.png" />
   <title>Elite FFL — FF Historian</title>
   <link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css?v=20261122"/>
   <script>try{if(/(?:^|; )sh_theme=dark/.test(document.cookie)||localStorage.getItem("sh_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
@@ -2515,10 +2518,10 @@ async function koAutoFillEspnValues() {
   if (btn) { btn.disabled = true; btn.textContent = "Loading ESPN $…"; }
   try {
     const settingsRes = await fetch(`${HELPER_API}/espn/settings`, { credentials: "include" });
-    if (!settingsRes.ok) throw new Error("Couldn't load your ESPN settings — sign in and check /myprofile.");
+    if (!settingsRes.ok) throw new Error("Couldn't load your ESPN settings — sign in and check ffhistorian.com/profile.");
     const settings = await settingsRes.json();
     const leagueId = (settings.league_ids || [])[0];
-    if (!leagueId) throw new Error("No ESPN league linked on your profile (set one at /myprofile).");
+    if (!leagueId) throw new Error("No ESPN league linked on your profile (set one at ffhistorian.com/profile).");
 
     const filter = JSON.stringify({
       players: { limit: 4000, sortDraftRanks: { sortPriority: 100, sortAsc: true, value: "STANDARD" } },

@@ -3,8 +3,8 @@
 /l/*            https://recordbook.ffhistorian.com/l/:splat 301
 /league/*       https://recordbook.ffhistorian.com/league/:splat 301
 /recap.js       https://recordbook.ffhistorian.com/recap.js 301
-/myprofile      https://helper.ffhistorian.com/myprofile 301
-/myprofile.html https://helper.ffhistorian.com/myprofile 301
+/myprofile      /profile/ 301
+/myprofile.html /profile/ 301
 /2wayinsanity1    https://recordbook.ffhistorian.com/2wayinsanity1/ 301
 /2wayinsanity1/*  https://recordbook.ffhistorian.com/2wayinsanity1/:splat 301
 /2wayinsanity2    https://recordbook.ffhistorian.com/2wayinsanity2/ 301

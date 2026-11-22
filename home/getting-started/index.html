@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" href="https://ffhistorian.com/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="https://ffhistorian.com/favicon-32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="https://ffhistorian.com/apple-touch-icon.png" />
 <title>Getting Started — FF Historian</title>
 <link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css?v=20261122" />
 <link rel="stylesheet" href="/home.css?v=20261120" />
@@ -114,7 +117,7 @@ const STEPS = [
           "League switchers in the League Analyzer and Trade Analyzer"],
     skip: ["League Assist asks for a username each time",
            "No “Your leagues” anywhere"],
-    action: () => `<a class="gs-btn" href="${HELPER}/myprofile">Add it on your profile</a>`,
+    action: () => `<a class="gs-btn" href="/profile/">Add it on your profile</a>`,
     check: u => !!u?.sleeper_username,
   },
   {
@@ -125,7 +128,7 @@ const STEPS = [
           "See your open trades, send offers, Mass Offers"],
     skip: ["Everything stays read-only: you can preview an optimal lineup but set it yourself in Sleeper",
            "No trade offers from League Assist"],
-    action: () => `<a class="gs-btn" href="${HELPER}/myprofile">Add it on your profile</a>`,
+    action: () => `<a class="gs-btn" href="/profile/">Add it on your profile</a>`,
     check: u => !!u?.has_token,
   },
   {
@@ -135,7 +138,7 @@ const STEPS = [
           "Your ESPN leagues counted in Scout, Players and Root For Me"],
     skip: ["League Assist shows your Sleeper leagues only"],
     action: () => `<a class="gs-btn" href="${HELPER}/espn-setup">How to connect ESPN</a>
-                   <a class="gs-btn ghost" href="${HELPER}/myprofile">Profile</a>`,
+                   <a class="gs-btn ghost" href="/profile/">Profile</a>`,
     check: async () => { const d = await getJson(`${HELPER}/api/espn/settings`); return !!(d?.has_credentials && (d.league_ids || []).length); },
   },
   {
