@@ -237,9 +237,15 @@ tab, the `#recapContent` panel and an `rcOpen(...)` call in `switchTab`.
 - **Playoff %** is sleeper-helper's own engine (`shared-utils.js` + `league-engine.js`, loaded
   from helper.ffhistorian.com on first open — bump `RC_ENGINE_V` with helper's `?v=` stamp).
   Simulated from banked weeks with Sleeper weekly projections (`/api/projections/:season/:week`).
+- **Playoff rules** are pills above the Playoff Picture, saved per league page
+  (`localStorage.rc_rules_{pathname}`): Tiebreaker (Points For / H2H then PF), Playoff spots (top N
+  records / division winners + records / top N−1 + most PF), and under divisions whether winners take
+  the top seeds or just get in. Default PF + top N for every league, ESPN included — the table is
+  ordered by these, not ESPN's `playoffSeed`. Seeding is helper's `playoffSeeds()` (league-engine.js),
+  so it needs helper deployed first. A toggle rebuilds from the loaded data (`RC.last`), no refetch.
 - **Clinched / eliminated** are mathematical and conservative (a possible tie on record counts as
-  passable). Sleeper divisions don't affect qualification (top N by record every season
-  2021–2025); ESPN's do — division winners are seeded first — and the ESPN rules account for it.
+  passable). Divisions count only when the Division Winners rule is picked. Under Top N−1 + Most PF
+  nobody is eliminated before the season ends (the PF spot can't be ruled out on record).
 - **Draft order**: playoff teams pick last in reverse of finish (seed until the bracket decides
   it); everyone else by Max PF, lowest first. Traded picks from `/api/league/:id/traded_picks`.
 - **ESPN** (Elite FFL) reads `/api/espn/eliteffl/recap/:season` (settings + rosters + schedule;

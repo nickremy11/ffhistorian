@@ -23,10 +23,29 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 const RC_HELPER   = "https://helper.ffhistorian.com";
-const RC_ENGINE_V = "20261111"; // bump with helper's ?v= stamp when the engine changes
+const RC_ENGINE_V = "20261127"; // bump with helper's ?v= stamp when the engine changes
 const RC_SIMS     = 10000;
 
-const RC = { opts: null, model: null, loading: false, round: 1, error: null };
+const RC = { opts: null, model: null, loading: false, round: 1, error: null, last: null, rules: null };
+
+// ── Playoff rules (picked on the page, saved per league page) ────────────────
+// tiebreak: 'pf' | 'h2h'      — equal records split on PF, or H2H among the tied teams then PF
+// format:   'top' | 'div' | 'pf' — best N records · division winners + best records · best N-1 + most PF
+// divSeed:  'top' | 'record'  — under 'div': winners take the top seeds, or just get in
+// Seeding itself is helper's playoffSeeds() (league-engine.js), so the order here
+// and the simulation's can't disagree.
+const RC_RULES_DEFAULT = { tiebreak: "pf", format: "top", divSeed: "top" };
+function rcRulesKey() { return `rc_rules_${typeof location !== "undefined" ? location.pathname : ""}`; }
+function rcLoadRules() {
+  try {
+    const r = JSON.parse(localStorage.getItem(rcRulesKey()) || "null") || {};
+    return {
+      tiebreak: ["pf", "h2h"].includes(r.tiebreak) ? r.tiebreak : "pf",
+      format: ["top", "div", "pf"].includes(r.format) ? r.format : "top",
+      divSeed: ["top", "record"].includes(r.divSeed) ? r.divSeed : "top",
+    };
+  } catch { return { ...RC_RULES_DEFAULT }; }
+}
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 
@@ -114,6 +133,52 @@ function rcRecords(rids, weekRows) {
   return out;
 }
 
+// Banked head-to-head from weekRows: {a: {b: games a beat b}} (a tie is ½ each).
+function rcH2h(weekRows) {
+  const h = {};
+  const add = (x, y, v) => { (h[x] = h[x] || {})[y] = (h[x][y] || 0) + v; };
+  for (const rows of Object.values(weekRows)) {
+    const groups = {};
+    for (const r of rows) if (r.mid != null) (groups[r.mid] = groups[r.mid] || []).push(r);
+    for (const [a, b] of Object.values(groups).filter(g => g.length === 2)) {
+      if (a.pts > b.pts) add(a.rid, b.rid, 1);
+      else if (b.pts > a.pts) add(b.rid, a.rid, 1);
+      else { add(a.rid, b.rid, 0.5); add(b.rid, a.rid, 0.5); }
+    }
+  }
+  return h;
+}
+
+// Orders teams by the rules (seeds first, then everyone else by record) and sets
+// `standing`. divisions only count under format 'div'.
+function rcOrderTeams(teams, playoffTeams, rules, h2h, divisions) {
+  const ids = teams.map(t => t.rid);
+  const wins = Object.fromEntries(teams.map(t => [t.rid, t.w + t.t / 2]));
+  const pts = Object.fromEntries(teams.map(t => [t.rid, t.pf]));
+  let order;
+  if (typeof playoffSeeds === "function") {
+    const { seeds, order: rec } = playoffSeeds(ids, wins, pts, playoffTeams, rules,
+      (a, b) => h2h[a]?.[b] || 0, rules.format === "div" ? divisions : null);
+    const inSet = new Set(seeds);
+    order = seeds.concat(rec.filter(r => !inSet.has(r)));
+  } else {
+    order = ids.slice().sort((a, b) => wins[b] - wins[a] || pts[b] - pts[a]);
+  }
+  const byId = Object.fromEntries(teams.map(t => [t.rid, t]));
+  const out = order.map(r => byId[r]);
+  out.forEach((t, i) => { t.standing = i + 1; });
+  return out;
+}
+
+// One line for the header: who gets in and how ties break.
+function rcRulesText(m) {
+  const r = m.rules || RC_RULES_DEFAULT, n = m.playoffTeams;
+  const spots = r.format === "pf" ? `Top ${n - 1} records + most PF of the rest make the playoffs`
+    : r.format === "div" && m.divisions ? `Division winners${r.divSeed === "record" ? " (seeded by record)" : " (top seeds)"} + best records — ${n} teams`
+    : `Top ${n} make the playoffs`;
+  return `${spots}${m.byeSlots ? ` · top ${m.byeSlots} get a bye` : ""} · ties: ${r.tiebreak === "h2h" ? "head-to-head, then PF" : "points for"}`;
+}
+
 // ── Clinch / elimination (pure, deterministic) ──────────────────────────────
 
 // teams: [{rid, w, t, standing}] in standings order (standing is 1-based).
@@ -131,7 +196,14 @@ function rcRecords(rids, weekRows) {
 //                winner (who could get in with a worse record) still < seeds
 //   bye        = clinched the division and fewer than byeSlots teams can catch you
 //   eliminated = can't win the division AND seeds-many teams are out of reach
-function rcClinchStatus(teams, gamesLeft, playoffTeams, byeSlots, divisions = null) {
+//
+// rules.format 'pf': only N-1 spots are decided on record (the last goes on PF,
+// which no record can rule out), so a clinch needs fewer than N-1 catchers and
+// nobody is eliminated until the season ends.
+// rules.divSeed 'record': winners only get in, so a bye needs no division title.
+function rcClinchStatus(teams, gamesLeft, playoffTeams, byeSlots, divisions = null, rules = RC_RULES_DEFAULT) {
+  const pfSpot = rules.format === "pf";
+  const recSpots = pfSpot ? playoffTeams - 1 : playoffTeams;
   const v = t => t.w + t.t / 2;
   const numDivs = divisions ? new Set(Object.values(divisions)).size : 0;
   const res = {};
@@ -149,18 +221,19 @@ function rcClinchStatus(teams, gamesLeft, playoffTeams, byeSlots, divisions = nu
     const unreachable = others.filter(o => v(o) > v(x) + gamesLeft).length;
     if (!divisions) {
       res[x.rid] = {
-        playoff: catchers < playoffTeams,
+        playoff: catchers < recSpots,
         bye: byeSlots > 0 && catchers < byeSlots,
-        eliminated: unreachable >= playoffTeams,
+        eliminated: !pfSpot && unreachable >= playoffTeams,
       };
       continue;
     }
     const rivals = others.filter(o => divisions[o.rid] === divisions[x.rid]);
     const divClinched = !rivals.some(o => v(o) + gamesLeft >= v(x));
     const divDead     =  rivals.some(o => v(o) > v(x) + gamesLeft);
+    const playoff = divClinched || catchers + (numDivs - 1) < playoffTeams;
     res[x.rid] = {
-      playoff: divClinched || catchers + (numDivs - 1) < playoffTeams,
-      bye: byeSlots > 0 && divClinched && catchers < byeSlots,
+      playoff,
+      bye: byeSlots > 0 && catchers < byeSlots && (rules.divSeed === "record" ? playoff : divClinched),
       eliminated: divDead && unreachable >= playoffTeams,
     };
   }
@@ -174,7 +247,8 @@ function rcClinchStatus(teams, gamesLeft, playoffTeams, byeSlots, divisions = nu
 // projections are empty (avg < 20 pts) every team plays at its banked weekly
 // average instead, and `fallback` says so.
 function rcSimulate({ simTeams, pidsByRid, projByWeek, futureWeeks, matchupsByWeek, scoring,
-                      rosterPositions, players, playoffTeams, median, avgPts, sims = RC_SIMS }) {
+                      rosterPositions, players, playoffTeams, median, avgPts, sims = RC_SIMS,
+                      rules = RC_RULES_DEFAULT, h2h = {}, divisions = null }) {
   const muMap = {}, sigmaMap = {};
   for (const t of simTeams) {
     muMap[t.rosterId] = {}; sigmaMap[t.rosterId] = {};
@@ -193,7 +267,8 @@ function rcSimulate({ simTeams, pidsByRid, projByWeek, futureWeeks, matchupsByWe
       for (const w of futureWeeks) { muMap[t.rosterId][w] = mu; sigmaMap[t.rosterId][w] = Math.max(12, mu * 0.2); }
     }
   }
-  const res = runSimulation(simTeams, matchupsByWeek, muMap, sigmaMap, futureWeeks, playoffTeams, { median }, sims);
+  const res = runSimulation(simTeams, matchupsByWeek, muMap, sigmaMap, futureWeeks, playoffTeams,
+    { median, rules, h2h, division: rules.format === "div" ? divisions : null }, sims);
   return { ...res, fallback };
 }
 
@@ -241,7 +316,9 @@ function rcPickHolder(tradedPicks, season, round, origRid) {
 function rcFinishModel(base, weekRows, sim) {
   const recs = rcRecords(base.teams.map(t => t.rid), weekRows);
   const gamesLeft = base.futureWeeks.length * (base.median ? 2 : 1);
-  const status = rcClinchStatus(base.teams, gamesLeft, base.playoffTeams, base.byeSlots, base.divisions || null);
+  const rules = base.rules || RC_RULES_DEFAULT;
+  const status = rcClinchStatus(base.teams, gamesLeft, base.playoffTeams, base.byeSlots,
+    rules.format === "div" ? base.divisions || null : null, rules);
   for (const t of base.teams) {
     Object.assign(t, recs[t.rid], status[t.rid]);
     t.odds = sim?.odds?.[t.rid] ?? null;
@@ -288,7 +365,11 @@ function rcBuildSleeper(raw) {
     else futureWeeks.push(w);
   }
 
-  const teams = rosters.map(r => {
+  const rules = raw.rules || RC_RULES_DEFAULT;
+  const h2h = rcH2h(weekRows);
+  const divisions = (st.divisions || 0) > 1 && rosters.every(r => r.settings?.division)
+    ? Object.fromEntries(rosters.map(r => [r.roster_id, r.settings.division])) : null;
+  const teamsRaw = rosters.map(r => {
     const s = r.settings || {}, u = userById[r.owner_id];
     const pf = dec(s, "fpts");
     const weeks = Object.values(weekRows).map(rows => rows.find(x => x.rid === r.roster_id)?.pts).filter(p => p != null);
@@ -300,11 +381,11 @@ function rcBuildSleeper(raw) {
       pf, maxPf: s.ppts ? dec(s, "ppts") : null,
       avgPts: weeks.length ? weeks.reduce((a, b) => a + b, 0) / weeks.length : null,
     };
-  }).sort((a, b) => (b.w + b.t / 2) - (a.w + a.t / 2) || b.pf - a.pf);
-  teams.forEach((t, i) => { t.standing = i + 1; });
+  });
+  const teams = rcOrderTeams(teamsRaw, playoffTeams, rules, h2h, divisions);
 
   const base = {
-    source: "sleeper", teams, leagueName: league.name, season: league.season, status: league.status,
+    source: "sleeper", teams, rules, divisions, leagueName: league.name, season: league.season, status: league.status,
     lastWeek: banked, regWeeks, futureWeeks, playoffTeams, median,
     byeSlots: bracketByeSlots(playoffTeams), numTeams: rosters.length,
     dynasty: st.type === 2, bestBall: st.best_ball === 1,
@@ -320,7 +401,7 @@ function rcBuildSleeper(raw) {
       scoring: league.scoring_settings || {}, rosterPositions: league.roster_positions || [],
       players: raw.players || {}, playoffTeams, median,
       avgPts: Object.fromEntries(teams.map(t => [t.rid, t.avgPts])),
-      sims: raw.sims,
+      sims: raw.sims, rules, h2h, divisions,
     });
   }
   const model = rcFinishModel(base, weekRows, sim);
@@ -375,8 +456,11 @@ function rcBuildEspn(raw) {
   }
 
   const ownerName = raw.ownerName || (id => id);
-  const allSeeded = d.teams.every(t => t.playoffSeed > 0);
-  const teams = d.teams.map(t => {
+  const rules = raw.rules || RC_RULES_DEFAULT;
+  const h2h = rcH2h(weekRows);
+  const divisions = new Set(d.teams.map(t => t.divisionId)).size > 1
+    ? Object.fromEntries(d.teams.map(t => [t.id, t.divisionId])) : null;
+  const teamsRaw = d.teams.map(t => {
     const o = t.record?.overall || {};
     const weeks = Object.values(weekRows).map(rows => rows.find(x => x.rid === t.id)?.pts).filter(p => p != null);
     return {
@@ -386,15 +470,13 @@ function rcBuildEspn(raw) {
       avgPts: weeks.length ? weeks.reduce((a, b) => a + b, 0) / weeks.length : null,
       pids: (t.roster || []).map(p => byName[rcNameKey(p.name)]).filter(Boolean),
     };
-  }).sort((a, b) => allSeeded ? a.seed - b.seed
-    : (b.w + b.t / 2) - (a.w + a.t / 2) || b.pf - a.pf);   // ESPN's own seeds when it has them
-  teams.forEach((t, i) => { t.standing = i + 1; });
+  });
+  // Ordered by the page's playoff rules, not ESPN's playoffSeed — the toggles decide.
+  const teams = rcOrderTeams(teamsRaw, playoffTeams, rules, h2h, divisions);
 
   const base = {
     source: "espn", teams, leagueName: raw.leagueName || "", season: d.seasonId,
-    // ESPN seeds division winners first — see rcClinchStatus.
-    divisions: new Set(d.teams.map(t => t.divisionId)).size > 1
-      ? Object.fromEntries(d.teams.map(t => [t.id, t.divisionId])) : null,
+    rules, divisions,
     lastWeek: regWeeks - futureWeeks.length, regWeeks, futureWeeks, playoffTeams, median: false,
     byeSlots: bracketByeSlots(playoffTeams), numTeams: d.teams.length, dynasty: false,
   };
@@ -410,7 +492,7 @@ function rcBuildEspn(raw) {
       rosterPositions: espnRosterPositionsFromSlotCounts(d.settings?.rosterSettings?.lineupSlotCounts),
       players: raw.players || {}, playoffTeams, median: false,
       avgPts: Object.fromEntries(teams.map(t => [t.rid, t.avgPts])),
-      sims: raw.sims,
+      sims: raw.sims, rules, h2h, divisions,
     });
   }
   const model = rcFinishModel(base, weekRows, sim);
@@ -458,8 +540,9 @@ async function rcLoadSleeper(opts) {
   const raw = { league, rosters, users, matchups, tradedPicks, bracket, players };
   // First pass finds the unplayed weeks; projections are fetched for just those.
   const pre = rcBuildSleeper({ ...raw, projByWeek: null });
-  if (!pre.futureWeeks.length) return pre;
-  return rcBuildSleeper({ ...raw, projByWeek: await rcProjections(league.season, pre.futureWeeks) });
+  raw.projByWeek = pre.futureWeeks.length ? await rcProjections(league.season, pre.futureWeeks) : null;
+  RC.last = { build: rcBuildSleeper, raw };
+  return rcBuildSleeper({ ...raw, rules: RC.rules });
 }
 
 async function rcLoadEspn(opts) {
@@ -469,8 +552,9 @@ async function rcLoadEspn(opts) {
   ]);
   const raw = { data, players, ownerName: opts.ownerName, leagueName: opts.leagueName };
   const pre = rcBuildEspn({ ...raw, projByWeek: null });
-  if (!pre.futureWeeks.length) return pre;
-  return rcBuildEspn({ ...raw, projByWeek: await rcProjections(opts.season, pre.futureWeeks) });
+  raw.projByWeek = pre.futureWeeks.length ? await rcProjections(opts.season, pre.futureWeeks) : null;
+  RC.last = { build: rcBuildEspn, raw };
+  return rcBuildEspn({ ...raw, rules: RC.rules });
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -527,7 +611,7 @@ function rcHtml(m) {
   const sub = [
     left ? `Through week ${m.lastWeek} · ${left} week${left === 1 ? "" : "s"} left in the regular season`
          : `Regular season complete (${m.regWeeks} weeks)`,
-    `Top ${m.playoffTeams} make the playoffs${m.byeSlots ? ` · top ${m.byeSlots} get a bye` : ""}`,
+    rcRulesText(m),
     m.median ? "Median league — two games a week" : "",
   ].filter(Boolean).join(" · ");
   const section = (title, html) => `<div class="rc-section"><h3 class="rc-h">${title}</h3>${html}</div>`;
@@ -542,6 +626,7 @@ function rcHtml(m) {
         <button class="lookup-btn rc-btn" onclick="rcGenerate(true)">↻ Regenerate</button>
       </div>
     </div>
+    ${rcRulesHtml(m)}
     ${section("🏆 Playoff Picture", rcTeamTable(m.groups.playoff, m))}
     ${section("🔥 Still in the Hunt", rcTeamTable(m.groups.hunt, m))}
     ${section("💀 Eliminated", rcTeamTable(m.groups.out, m))}
@@ -553,6 +638,42 @@ function rcHtml(m) {
       ${m.unmatched ? `${m.unmatched} rostered ESPN player${m.unmatched === 1 ? "" : "s"} couldn't be matched to a projection.` : ""}</p>`;
 }
 
+function rcRulesHtml(m) {
+  const r = m.rules || RC_RULES_DEFAULT;
+  const pill = (key, v, label, title) => `<button class="year-pill${r[key] === v ? " active" : ""}" onclick="rcSetRule('${key}','${v}')" title="${rcEsc(title)}">${label}</button>`;
+  const row = (label, pills) => `<div class="rc-rule-row"><span class="rc-rule-lbl">${label}</span><div class="year-pills">${pills}</div></div>`;
+  return `<div class="rc-rules">
+    ${row("Tiebreaker", pill("tiebreak", "pf", "Points For", "Equal records split on points for")
+      + pill("tiebreak", "h2h", "H2H, then PF", "Head-to-head wins among the tied teams, then points for"))}
+    ${row("Playoff spots", pill("format", "top", `Top ${m.playoffTeams} Records`, "The best records")
+      + pill("format", "div", "Division Winners + Records", "Every division winner, then the best remaining records")
+      + pill("format", "pf", `Top ${m.playoffTeams - 1} + Most PF`, "The best records, then the most points for among everyone left"))}
+    ${r.format === "div" ? (m.divisions
+      ? row("Division winners", pill("divSeed", "top", "Top Seeds", "Division winners take the top seeds (and any byes), whatever their record")
+        + pill("divSeed", "record", "Just Get In", "Division winners are guaranteed a spot, but every team is seeded by record"))
+      : `<p class="rc-note" style="margin-top:0">This league has no divisions — the best records get in.</p>`) : ""}
+  </div>`;
+}
+
+// Re-seed and re-simulate from the data already loaded — no refetch.
+function rcSetRule(key, val) {
+  if (!RC.rules || RC.rules[key] === val || RC.loading) return;
+  RC.rules = { ...RC.rules, [key]: val };
+  try { localStorage.setItem(rcRulesKey(), JSON.stringify(RC.rules)); } catch {}
+  if (!RC.last) return rcGenerate(true);
+  RC.loading = true;
+  rcRoot().innerHTML = `<div class="loading"><div class="spinner"></div><br/>Re-seeding and re-simulating…</div>`;
+  setTimeout(() => {
+    try {
+      RC.model = RC.last.build({ ...RC.last.raw, rules: RC.rules });
+      rcRoot().innerHTML = rcHtml(RC.model);
+    } catch (e) {
+      console.error("[Recap]", e);
+      rcRoot().innerHTML = `<div class="error-msg">Couldn't build the recap: ${rcEsc(e.message)}</div>`;
+    } finally { RC.loading = false; }
+  }, 30);
+}
+
 function rcText(m) {
   const rec = t => m.median
     ? `${rcRec(t.withMed)} (w/o med ${rcRec(t.h2h)}, AP ${rcRec(t.ap)})`
@@ -561,7 +682,7 @@ function rcText(m) {
     + (m.gamesLeft > 0 && t.bye ? " · CLINCHED BYE" : m.gamesLeft > 0 && t.playoff ? " · CLINCHED" : "");
   const block = (title, rows) => rows.length ? [`${title}`, ...rows.map(line), ""] : [];
   const out = [
-    `${m.leagueName ? m.leagueName + " — " : ""}${m.season} Week ${m.lastWeek} Recap`, "",
+    `${m.leagueName ? m.leagueName + " — " : ""}${m.season} Week ${m.lastWeek} Recap`, rcRulesText(m), "",
     ...block("🏆 PLAYOFF PICTURE", m.groups.playoff),
     ...block("🔥 STILL IN THE HUNT", m.groups.hunt),
     ...block("💀 ELIMINATED", m.groups.out),
@@ -604,6 +725,10 @@ const RC_CSS = `
   .rc-tag-in  { background: var(--green-light); color: var(--cream); }
   .rc-empty { font-family: var(--font-head), serif; font-style: italic; color: var(--brown-light); }
   .rc-round-pills { margin-bottom: 12px; }
+  .rc-rules { display: flex; flex-direction: column; gap: 8px; margin: -8px 0 24px; }
+  .rc-rule-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .rc-rule-row .year-pills { margin: 0; flex-wrap: wrap; }
+  .rc-rule-lbl { font-family: var(--font-display), serif; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brown-light); min-width: 120px; }
   .rc-note { margin-top: 10px; font-family: var(--font-body), serif; font-size: 0.85rem; font-style: italic; color: var(--brown-light); }
   @media (max-width: 600px) {
     .standings-table td.rc-pos { width: 34px; }
@@ -622,6 +747,7 @@ function rcInjectCss() {
 
 function rcOpen(opts) {
   rcInjectCss();
+  if (!RC.rules) RC.rules = rcLoadRules();
   RC.opts = opts;
   if (!RC.model && !RC.loading) rcGenerate(false);
 }
@@ -660,6 +786,6 @@ async function rcCopy() {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { rcRecords, rcClinchStatus, rcDraftSlots, rcPlayoffFinish, rcPickHolder,
+  module.exports = { rcRecords, rcClinchStatus, rcH2h, rcOrderTeams, rcRulesText, rcDraftSlots, rcPlayoffFinish, rcPickHolder,
                      rcBuildSleeper, rcBuildEspn, rcText, rcHtml, rcNameKey };
 }
