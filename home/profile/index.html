@@ -196,7 +196,7 @@ footer { padding: 32px 0 20px; }
         </div>
         <nav class="pf-tabs" aria-label="Profile sections">
           <a class="pf-tab" href="#account"     data-tab="account">Account<small>Name &amp; email</small></a>
-          <a class="pf-tab" href="#connections" data-tab="connections">Connections<small>Sleeper, ESPN &amp; MFL</small></a>
+          <a class="pf-tab" href="#connections" data-tab="connections">Connections<small>Sleeper, ESPN, MFL &amp; Yahoo</small></a>
           <a class="pf-tab" href="#contending"  data-tab="contending">Contending<small>Which leagues you're chasing</small></a>
           <a class="pf-tab" href="#security"    data-tab="security">Sign-in &amp; Security<small>Password, Google</small></a>
           <a class="pf-tab" href="#help"        data-tab="help">Help &amp; Feedback<small>Questions, ideas, bugs</small></a>
@@ -267,6 +267,18 @@ footer { padding: 32px 0 20px; }
             <div class="field-row"><input type="text" id="field-espn-swid" class="field-input" placeholder="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}…" /></div>
             <div class="field-row"><button class="pf-btn" onclick="saveEspnSettings()">Save ESPN</button></div>
             <div class="field-status" id="espn-status"></div>
+          </div>
+
+          <div class="pf-card" id="yahoo-card">
+            <h3>Yahoo Fantasy <span class="pf-h-aside">read-only</span></h3>
+            <div id="yahoo-off" style="display:none;"><p class="field-hint">Yahoo connections aren't switched on yet — Yahoo has to approve this site first.</p></div>
+            <div id="yahoo-on" style="display:none;">
+              <p class="field-hint">Sign in on Yahoo's own page and your Yahoo leagues are found for you. Yahoo only lets apps read leagues, so nothing on Yahoo is ever changed. Your Yahoo password never comes here.</p>
+              <div class="field-row" id="yahoo-actions"></div>
+            </div>
+            <div class="field-status" id="yahoo-status"></div>
+            <div id="yahoo-leagues"></div>
+            <p class="field-hint" style="margin-top:10px;">Fantasy data provided by <a href="https://football.fantasysports.yahoo.com/" target="_blank" rel="noopener">Yahoo Fantasy</a></p>
           </div>
 
           <div class="pf-card" id="mfl-card">
@@ -381,7 +393,7 @@ footer { padding: 32px 0 20px; }
   </div>
 </div>
 
-<script src="https://helper.ffhistorian.com/shared-core.js?v=20261129"></script>
+<script src="https://helper.ffhistorian.com/shared-core.js?v=20261130"></script>
 <script src="https://helper.ffhistorian.com/shared-auth.js?v=20261124"></script>
 <script src="https://helper.ffhistorian.com/shared-utils.js?v=20261129"></script>
 <script>
@@ -428,6 +440,7 @@ function populateFields(user) {
   drawHelp('help-mount');
   loadEspnSettings();
   loadMflSettings();
+  loadYahooSettings();
 }
 
 function setStatus(id, msg, isOk, keep) {
@@ -576,6 +589,69 @@ async function mflAdd() {
   } catch (e) { setStatus('mfl-status', e.message, false, true); }
 }
 
+// ── Yahoo ──
+// helper's /api/yahoo/* (worker src/yahoo.js). Connecting is Yahoo's own sign-in:
+// /auth/yahoo/start → Yahoo → /auth/yahoo/callback, which comes back here with
+// ?yahoo=connected-N | cancelled | expired | failed | signin.
+let YH = { available: false, connected: false, leagues: [], hidden: [] };
+const YAHOO_START = '/auth/yahoo/start?next=' + encodeURIComponent('https://ffhistorian.com/profile/#connections');
+async function yhCall(path, method = 'GET', body) {
+  const r = await fetch(SH_API + '/yahoo' + path, {
+    method, credentials: 'include', headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Yahoo request failed');
+  return d;
+}
+function yhDraw() {
+  document.getElementById('yahoo-off').style.display = YH.available ? 'none' : '';
+  document.getElementById('yahoo-on').style.display = YH.available ? '' : 'none';
+  document.getElementById('yahoo-actions').innerHTML = YH.connected
+    ? `<span class="pf-ok">✔ Yahoo connected</span>
+       <button class="pf-btn ghost" onclick="yhDiscover()">Find my leagues again</button>
+       <button class="pf-btn ghost" onclick="yhDisconnect()">Disconnect</button>`
+    : `<a class="pf-btn" href="${YAHOO_START}" style="text-decoration:none;">Connect Yahoo</a>`;
+  const hidden = new Set(YH.hidden || []);
+  const list = [...(YH.leagues || [])].sort((a, b) => b.season - a.season || String(a.name).localeCompare(String(b.name)));
+  const box = document.getElementById('yahoo-leagues');
+  if (!YH.connected || !list.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="field-label" style="margin-top:12px;">Your Yahoo leagues <span class="field-label-sub">— untick one to leave it out of every tool</span></div>
+    ${list.map(l => { const k = `${l.season}_${l.id}`; return `<label class="disc-row" style="display:flex;gap:8px;align-items:center;padding:3px 0;">
+      <input type="checkbox" ${hidden.has(k) ? '' : 'checked'} onchange="yhToggle(${jsArg(k)}, this.checked)" />
+      <span>${esc(l.name || 'Yahoo ' + l.id)}</span>
+      <span class="field-label-sub">${esc(String(l.season))}${l.team_name ? ' · ' + esc(l.team_name) : ''}</span>
+    </label>`; }).join('')}`;
+}
+async function loadYahooSettings() {
+  try { YH = await yhCall('/settings'); } catch {}
+  yhDraw();
+  const flag = new URLSearchParams(location.search).get('yahoo');
+  if (!flag) return;
+  const msg = { cancelled: 'Yahoo wasn’t connected.', expired: 'That Yahoo sign-in took too long — try again.',
+                failed: 'Yahoo sign-in didn’t complete — try again.', signin: 'Sign in here first, then connect Yahoo.',
+                'connected-nolist': 'Yahoo connected, but its league list didn’t load — try Find my leagues again.' }[flag];
+  const n = /^connected-(\d+)$/.exec(flag)?.[1];
+  setStatus('yahoo-status', msg || (n != null ? `Yahoo connected — ${n} league${n === '1' ? '' : 's'} found` : ''), !!n || flag === 'connected-nolist', true);
+  const u = new URL(location.href); u.searchParams.delete('yahoo'); history.replaceState(null, '', u.toString());
+}
+async function yhDiscover() {
+  setStatus('yahoo-status', 'Asking Yahoo which leagues you are in…', true, true);
+  try { YH = await yhCall('/discover', 'POST', {}); yhDraw(); setStatus('yahoo-status', `${YH.leagues.length} league${YH.leagues.length === 1 ? '' : 's'}`, true); CT.loaded = false; }
+  catch (e) { setStatus('yahoo-status', e.message, false, true); }
+}
+async function yhDisconnect() {
+  if (!confirm('Disconnect Yahoo? Your Yahoo leagues will leave every tool until you connect again.')) return;
+  try { YH = await yhCall('/settings', 'DELETE'); yhDraw(); setStatus('yahoo-status', 'Disconnected', true); CT.loaded = false; }
+  catch (e) { setStatus('yahoo-status', e.message, false); }
+}
+async function yhToggle(key, on) {
+  const hidden = new Set(YH.hidden || []);
+  if (on) hidden.delete(key); else hidden.add(key);
+  try { YH = await yhCall('/settings', 'POST', { hidden: [...hidden] }); yhDraw(); CT.loaded = false; }
+  catch (e) { setStatus('yahoo-status', e.message, false); }
+}
+
 // ── ESPN ──
 async function loadEspnSettings() {
   try {
@@ -705,6 +781,14 @@ async function ctEnsure() {
       for (const l of mfl?.leagues || []) {
         if (String(l.year) !== String(season) || hidden.has(`${l.year}_${l.id}`)) continue;
         leagues.push({ id: `mfl_${l.year}_${l.id}`, name: l.name || `MFL ${l.id}`, source: 'mfl', teams: null, fmt: 'MFL', dynasty: false });
+      }
+    } catch {}
+    try {
+      const yh = await fetch(`${SH_API}/yahoo/settings`, { credentials: 'include' }).then(r => r.ok ? r.json() : null);
+      const hidden = new Set(yh?.hidden || []);
+      if (yh?.connected) for (const l of yh.leagues || []) {
+        if (String(l.season) !== String(season) || hidden.has(`${l.season}_${l.id}`)) continue;
+        leagues.push({ id: `yh_${l.season}_${l.id}`, name: l.name || `Yahoo ${l.id}`, source: 'yahoo', teams: l.num_teams || null, fmt: 'Yahoo', dynasty: false });
       }
     } catch {}
     CT.prefs = await prefsP;
