@@ -93,13 +93,13 @@ footer { padding: 24px; }
     </div>
     <div class="rb-count" id="rbCount"></div>
 
-    <div id="rbArchive"></div>
     <div id="rbMine"></div>
+    <div id="rbEspn"></div>
 
     <div class="card rb-finder">
-      <p id="finderHint">Open any Sleeper league's history book: paste its league ID or sleeper.com link.</p>
+      <p id="finderHint">Open any league's history book: paste a Sleeper league ID or link, or an ESPN league link.</p>
       <div class="rb-finder-row">
-        <input id="finderInput" class="search-input" placeholder="e.g. 1180232430068178944 or sleeper.com/leagues/…" autocomplete="off"/>
+        <input id="finderInput" class="search-input" placeholder="e.g. 1180232430068178944, sleeper.com/leagues/… or fantasy.espn.com/…?leagueId=…" autocomplete="off"/>
         <button class="setup-btn" style="padding:0 18px;font-family:var(--font-display),serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer" onclick="openLeagueFromInput()">Open</button>
       </div>
       <div class="rb-finder-msg" id="finderMsg"></div>
@@ -116,9 +116,12 @@ footer { padding: 24px; }
 <script>
 // ════════════════════════════════════════════════════════════════════════════
 // The Record Book landing (recordbook.ffhistorian.com).
-//   Archive leagues  — the curated LEAGUES list (league/leagues.js)
-//   Your leagues     — signed in: your current Sleeper leagues (/api/history/mine),
-//                      each opening at /l/{id} (worker/src/history.js)
+// Signed in, it lists YOUR leagues and nothing else (/api/history/mine):
+//   Your Sleeper leagues — this season's, each opening at /l/{id}
+//   Your ESPN leagues    — every league connected on the profile, at /l/espn_{id}
+// A league with a curated page (LEAGUES, league/leagues.js — or Elite FFL) opens
+// that page instead, with its own name and logo. Signed out, nothing is listed;
+// the curated pages are still reachable by their links.
 // One search box filters both as you type; Grid/List is remembered per browser.
 // ════════════════════════════════════════════════════════════════════════════
 const escH = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -130,7 +133,18 @@ const RB = {
   q: "",
   mine: null,          // null = not loaded / signed out; [] = none
   mineMsg: "",
+  espn: null,          // null = not loaded / signed out; [] = none
+  espnMsg: "",
 };
+
+// ESPN leagues with a page of their own (Elite FFL isn't in LEAGUES — it has its own app)
+const ESPN_OWN_PAGES = { "330437": { href: "/eliteffl/", name: "Elite FFL", logo: "", emoji: "🏆" } };
+function curatedEspn(espnId) {
+  if (ESPN_OWN_PAGES[espnId]) return ESPN_OWN_PAGES[espnId];
+  const c = LEAGUES.find(l => l.platform === "espn"
+    && Object.values(l.seasons || {}).some(v => String(v).startsWith(`espn_${espnId}_`)));
+  return c ? { href: `/${c.slug}/`, name: c.cardName || c.name, logo: c.logo, emoji: c.emoji || "🏈" } : null;
+}
 
 // A curated league opens on its own page, whichever season's id was given
 function leagueHref(id) {
@@ -139,28 +153,42 @@ function leagueHref(id) {
 }
 
 // One row shape for both lists, so the grid, the table and the search don't branch
-function archiveRows() {
-  return LEAGUES.map(l => {
-    const yrs = Object.keys(l.seasons || {}).sort();
+const span = yrs => yrs.length ? (yrs.length > 1 ? `${yrs[0]}–${yrs.at(-1)}` : yrs[0]) : "";
+function mineRows() {
+  const seen = new Set();
+  return (RB.mine || []).map(l => {
+    // A curated league opens its own page, with its own name and logo
+    const c = LEAGUES.find(x => Object.values(x.seasons || {}).map(String).includes(String(l.league_id))
+      || (l.previous_league_id && Object.values(x.seasons || {}).map(String).includes(String(l.previous_league_id))));
+    if (c) {
+      if (seen.has(c.slug)) return null;
+      seen.add(c.slug);
+      return {
+        href: `/${c.slug}/`, name: c.cardName || c.name, logo: c.logo, emoji: c.emoji || "🏈",
+        platform: "Sleeper", format: c.format === "redraft" ? "Redraft" : "Dynasty",
+        seasons: span(Object.keys(c.seasons || {}).sort()), extra: "",
+      };
+    }
     return {
-      href: `/${l.slug}/`, name: l.cardName || l.name, logo: l.logo, emoji: l.emoji || "🏈",
-      platform: l.platform === "espn" ? "ESPN" : "Sleeper",
-      format: l.format === "redraft" ? "Redraft" : "Dynasty",
-      seasons: yrs.length ? (yrs.length > 1 ? `${yrs[0]}–${yrs.at(-1)}` : yrs[0]) : "",
-      extra: "",
+      href: leagueHref(l.league_id), name: l.name,
+      logo: l.avatar ? `https://sleepercdn.com/avatars/thumbs/${l.avatar}` : "", emoji: "🏈",
+      platform: "Sleeper",
+      format: (l.dynasty ? "Dynasty" : "Redraft") + (l.best_ball ? " · Best Ball" : ""),
+      seasons: String(l.season), extra: `${l.teams} teams`,
+    };
+  }).filter(Boolean);
+}
+function espnRows() {
+  return (RB.espn || []).map(l => {
+    const c = curatedEspn(l.espn_id);
+    if (c) return { href: c.href, name: c.name, logo: c.logo, emoji: c.emoji, platform: "ESPN", format: "Redraft", seasons: "", extra: "" };
+    return {
+      href: `/l/espn_${l.espn_id}`, name: l.name, logo: "", emoji: "🏈",
+      platform: "ESPN", format: "Redraft",
+      seasons: l.season ? String(l.season) : "",
+      extra: l.readable ? (l.teams ? `${l.teams} teams` : "") : "ESPN wouldn't share it — check your cookies",
     };
   });
-}
-function mineRows() {
-  // A curated league already sits in the archive list — don't show it twice
-  const curated = new Set(LEAGUES.flatMap(l => Object.values(l.seasons || {}).map(String)));
-  return (RB.mine || []).filter(l => !curated.has(String(l.league_id))).map(l => ({
-    href: leagueHref(l.league_id), name: l.name,
-    logo: l.avatar ? `https://sleepercdn.com/avatars/thumbs/${l.avatar}` : "", emoji: "🏈",
-    platform: "Sleeper",
-    format: (l.dynasty ? "Dynasty" : "Redraft") + (l.best_ball ? " · Best Ball" : ""),
-    seasons: String(l.season), extra: `${l.teams} teams`,
-  }));
 }
 
 const matches = (r, q) => !q || `${r.name} ${r.platform} ${r.format} ${r.seasons}`.toLowerCase().includes(q);
@@ -199,23 +227,23 @@ function section(title, all, q) {
     + (rows.length ? listHtml(rows) : `<p class="rb-empty">No ${escH(title.toLowerCase())} match “${escH(RB.q)}”.</p>`) };
 }
 
+function listSection(el, title, rows, msg, q) {
+  if (rows === null) { el.innerHTML = msg ? `<div class="rb-label">${title}</div><p class="rb-note">${msg}</p>` : ""; return { shown: 0, total: 0 }; }
+  if (!rows.length) { el.innerHTML = `<div class="rb-label">${title}</div><p class="rb-note">${msg}</p>`; return { shown: 0, total: 0 }; }
+  const m = section(title, rows, q);
+  el.innerHTML = m.html + (msg ? `<p class="rb-note">${msg}</p>` : "");
+  return { shown: m.rows.length, total: rows.length };
+}
+
 function draw() {
   const q = RB.q.trim().toLowerCase();
   document.querySelectorAll(".rb-view button").forEach(b => b.classList.toggle("active", b.dataset.view === RB.view));
 
-  const a = section("Archive leagues", archiveRows(), q);
-  document.getElementById("rbArchive").innerHTML = a.html;
-
-  let shown = a.rows.length, total = LEAGUES.length;
-  const mineEl = document.getElementById("rbMine");
-  if (RB.mine === null) {
-    mineEl.innerHTML = RB.mineMsg ? `<div class="rb-label">Your Sleeper leagues</div><p class="rb-note">${RB.mineMsg}</p>` : "";
-  } else {
-    const all = mineRows();
-    const m = section("Your Sleeper leagues", all, q);
-    mineEl.innerHTML = all.length ? m.html : `<div class="rb-label">Your Sleeper leagues</div><p class="rb-note">${RB.mineMsg || "No other Sleeper leagues this season."}</p>`;
-    shown += m.rows.length; total += all.length;
-  }
+  const a = listSection(document.getElementById("rbMine"), "Your Sleeper leagues",
+    RB.mine === null ? null : mineRows(), RB.mine === null || RB.mine.length ? RB.mineMsg : (RB.mineMsg || "No Sleeper leagues this season."), q);
+  const b = listSection(document.getElementById("rbEspn"), "Your ESPN leagues",
+    RB.espn === null ? null : espnRows(), RB.espnMsg, q);
+  const shown = a.shown + b.shown, total = a.total + b.total;
   document.getElementById("rbCount").textContent = q ? `${shown} of ${total} leagues match` : "";
 }
 
@@ -224,7 +252,14 @@ function setView(v) { RB.view = v; lsSet("rb_view", v); draw(); }
 document.getElementById("rbSearch").addEventListener("input", e => { RB.q = e.target.value; draw(); });
 
 function openLeagueFromInput() {
-  const m = document.getElementById("finderInput").value.trim().match(/\d{6,25}/);
+  const raw = document.getElementById("finderInput").value.trim();
+  const espn = /espn\.com/i.test(raw) && raw.match(/leagueId=(\d+)/i);
+  if (espn) {
+    const c = curatedEspn(espn[1]);
+    location.href = c ? c.href : `/l/espn_${espn[1]}`;
+    return;
+  }
+  const m = raw.match(/\d{6,25}/);
   if (!m) { document.getElementById("finderMsg").textContent = "That doesn't look like a Sleeper league ID."; return; }
   // Signed out still goes: an already-opened league works for anyone, and the
   // league page asks for sign-in if this one is new.
@@ -233,11 +268,17 @@ function openLeagueFromInput() {
 document.getElementById("finderInput").addEventListener("keydown", e => { if (e.key === "Enter") openLeagueFromInput(); });
 
 async function loadMine() {
-  RB.mine = null; RB.mineMsg = "Reading your leagues from Sleeper…"; draw();
+  RB.mine = null; RB.mineMsg = "Reading your leagues from Sleeper…";
+  RB.espn = null; RB.espnMsg = "Reading your ESPN leagues…"; draw();
   try {
     const r = await fetch("/api/history/mine", { credentials: "include" });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
+    const e = d.espn || {};
+    RB.espn = e.leagues || [];
+    RB.espnMsg = e.error ? `Couldn't read your ESPN leagues (${escH(e.error)}).`
+      : RB.espn.length ? ""
+      : `No ESPN leagues connected. Add them on <a href="https://ffhistorian.com/profile/#connections">your profile</a>.`;
     if (d.noUsername || d.badUsername) {
       RB.mine = [];
       RB.mineMsg = `${d.badUsername ? `Sleeper doesn't know the username “${escH(d.badUsername)}”.` : "No Sleeper username on your account."}
@@ -248,6 +289,7 @@ async function loadMine() {
     }
   } catch (e) {
     RB.mine = null; RB.mineMsg = `Couldn't load your leagues (${escH(e.message)}).`;
+    RB.espn = null; RB.espnMsg = "";
   }
   draw();
 }
@@ -258,8 +300,9 @@ async function loadMine() {
   const onIn = () => { loadMine(); };
   const onOut = () => {
     RB.mine = null;
-    RB.mineMsg = `<a href="#" onclick="SharedAuth.openModal();return false;">Sign in</a> to list your own Sleeper leagues here.`;
-    hint.innerHTML = `Open any Sleeper league's history book: paste its league ID or sleeper.com link. Opening a league for the first time needs an account; after that, its link works for anyone.`;
+    RB.mineMsg = `<a href="#" onclick="SharedAuth.openModal();return false;">Sign in</a> to see your Sleeper and ESPN leagues here.`;
+    RB.espn = null; RB.espnMsg = "";
+    hint.innerHTML = `Open any league's history book: paste a Sleeper league ID or link, or an ESPN league link. Opening a league for the first time needs an account; after that, its link works for anyone.`;
     draw();
   };
   if (!window.SharedAuth) return onOut();

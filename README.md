@@ -119,9 +119,31 @@ asks the worker for a config instead of looking in `LEAGUES`.
 - **`*` marks current members** on Standings (every league page, curated too): owners or co-owners
   of a roster in the newest season.
 - **A curated league always wins**: any of its season ids on `/l/` redirects to `/{slug}/`.
-- **Landing page**: paste a league id or sleeper.com link; signed in, "Your Sleeper leagues"
-  (`GET /api/history/mine`, from the account's Sleeper username, one card per league chain).
+- **Landing page lists only the signed-in user's leagues** — no public archive list. "Your Sleeper
+  leagues" (this season, one card per chain) and "Your ESPN leagues" (every league connected on the
+  profile), both from `GET /api/history/mine`. A league with a curated page opens that page (its
+  name and logo); Elite FFL (ESPN 330437) opens `/eliteffl/`. Signed out: a sign-in line and the
+  finder. The curated pages still work for anyone by link.
 - Generated pages show **🔗 Copy share link**. No logos/aliases beyond what Sleeper has (league avatar).
+
+## Any ESPN league — `/l/espn_{espnId}`
+
+Same page, same rules as Sleeper (first open needs an account, then the link is public). The worker
+builds the config (`buildEspnConfig`, `history.js`): seasons = this one + `status.previousSeasons`,
+each `espn_{id}_{year}`, read through the existing ESPN → Sleeper adapter under the key `x{id}`
+(R2 `espn/x{id}/…`, KV `espncore:x{id}:…`) — its own namespace, so it never touches a curated
+league's archive. KV `hist:espn:{id}` → `{builtAt, owner, config}`.
+
+- **Cookies**: a private league is read with the cookies of the account that opened it (`owner`).
+  This worker never sees the encryption key: it asks helper's **`EspnCookies`** named entrypoint
+  over the `HELPER` service binding (`sleeper-helper/worker/src/espn-cookies.js`), which isn't
+  reachable from any URL. No cookies → a cookie-less read (public leagues). If the owner
+  disconnects ESPN, their league stops refreshing until someone re-opens it.
+- **The three curated ESPN leagues** (`ESPN_LEAGUES`: eliteffl, wolfpack, standrews) are untouched —
+  still this worker's own `ESPN_S2`/`ESPN_SWID`, still their own pages; `/l/espn_{id}` for one of
+  them redirects there.
+- Trades: seasons from 2018; a season the opener's cookies can't read returns no trades, not an error.
+- **Deploy helper first** — the `HELPER` binding points at its `EspnCookies` export.
 
 ## Day-of trade values — daily FantasyCalc snapshots
 

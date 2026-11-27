@@ -21,6 +21,8 @@
 //   hist:cfg:{rootId}        → { builtAt, config }
 // ════════════════════════════════════════════════════════════════════════════
 
+import { ESPN_BASE, espnFetch, userEspnCookie } from "./espn-auth.js";
+
 const SLEEPER = "https://api.sleeper.app/v1";
 const ID_RE = /^\d{6,25}$/;
 const FRESH_MS_IN_SEASON  = 6 * 60 * 60 * 1000;   // re-read the chain every 6h in season
@@ -202,8 +204,135 @@ async function storeConfig(env, cfg) {
   return rec;
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// ESPN leagues — /l/espn_{espnId}
+//
+// Same idea as Sleeper: the first open needs a signed-in account, after which the
+// link works for anyone. ESPN has one id for every season of a league, so there is
+// no chain to walk: the seasons are this one plus status.previousSeasons. The page
+// then reads every season through the worker's ESPN → Sleeper adapter
+// (/api/league/espn_{id}_{season}/…, index.js) under the key `x{id}`.
+//
+// Private leagues are read with the cookies of the account that opened the league
+// (`owner`, looked up through helper — espn-auth.js). The three curated ESPN
+// leagues (Elite FFL, Wolfpack, St. Andrew's) never come through here.
+//
+// KV (FF_CACHE), no ttl:  hist:espn:{espnId} → { builtAt, owner, config }
+// ════════════════════════════════════════════════════════════════════════════
+const ESPN_ID_RE = /^espn_(\d{3,12})$/;
+const ESPN_CURATED_IDS = new Set(["330437", "1656310", "845744"]);   // ESPN_LEAGUES in index.js
+
+export async function espnRegistered(env, espnId) {
+  const raw = await env.FF_CACHE.get(`hist:espn:${espnId}`);
+  try { return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+
+// The ESPN season a league is "in" right now: this NFL season, else last one
+// (a league not renewed yet), else next (renewed early).
+async function espnLeagueNow(env, espnId, cookie) {
+  const s = nflSeason();
+  const league = { id: espnId, cookie };
+  for (const yr of [s, s - 1, s + 1]) {
+    try {
+      const d = await espnFetch(env,
+        `${ESPN_BASE}/seasons/${yr}/segments/0/leagues/${espnId}?view=mSettings&view=mStatus&view=mTeam`, league);
+      if (Array.isArray(d.teams) && d.teams.length) return { season: yr, d };
+    } catch { /* try the next season */ }
+  }
+  return null;
+}
+
+export async function buildEspnConfig(env, espnId, owner) {
+  const cookie = owner ? await userEspnCookie(env, owner) : null;
+  const now = await espnLeagueNow(env, espnId, cookie);
+  if (!now) return null;
+  const { season, d } = now;
+  const years = [...new Set([...(d.status?.previousSeasons || []), season].map(Number))]
+    .filter(y => y >= 2004 && y <= season).sort((a, b) => a - b);
+  const seasons = {};
+  years.forEach(y => { seasons[y] = `espn_${espnId}_${y}`; });
+  const name = d.settings?.name || `ESPN league ${espnId}`;
+  return {
+    slug: `l/espn_${espnId}`,
+    id: `espn_${espnId}`,
+    shareId: `espn_${espnId}`,
+    name, title: name, cardName: name, h1: splitTitle(name),
+    logo: "", emoji: "🏈",
+    platform: "espn",
+    format: "redraft",
+    espnKey: `x${espnId}`,
+    seasons,
+    draftIds: {},
+    hasDivisions: (d.settings?.scheduleSettings?.divisions || []).length > 1,
+    ownershipMerges: [],
+    franchiseLinks: [],
+    generated: true,
+  };
+}
+
+async function handleEspnConfig(request, env, espnId) {
+  if (ESPN_CURATED_IDS.has(espnId)) return json({ error: "That league has its own page.", curated: espnId }, 409);
+  let rec = await espnRegistered(env, espnId);
+
+  if (!rec) {
+    const user = await getAuthUser(request, env);
+    if (!user) return json({ error: "Sign in to open a league for the first time.", needsSignIn: true }, 401);
+    const cfg = await buildEspnConfig(env, espnId, user.user_id);
+    if (!cfg) return json({
+      error: "ESPN wouldn't share that league. If it's private, connect your ESPN account on your profile (ffhistorian.com/profile/#connections) and try again.",
+    }, 404);
+    rec = { builtAt: Date.now(), owner: user.user_id, config: cfg };
+    await env.FF_CACHE.put(`hist:espn:${espnId}`, JSON.stringify(rec));
+    return json(rec.config);
+  }
+
+  const maxAge = inSeason() ? FRESH_MS_IN_SEASON : FRESH_MS_OFFSEASON;
+  if (Date.now() - rec.builtAt > maxAge) {
+    try {
+      const cfg = await buildEspnConfig(env, espnId, rec.owner);
+      rec = { ...rec, builtAt: Date.now(), ...(cfg ? { config: cfg } : {}) };
+      await env.FF_CACHE.put(`hist:espn:${espnId}`, JSON.stringify(rec));
+    } catch { /* stale is fine */ }
+  }
+  return json(rec.config);
+}
+
+// The signed-in user's connected ESPN leagues (helper's espn_settings), named.
+async function mineEspn(env, user) {
+  const row = await env.DB.prepare(
+    "SELECT league_ids, espn_s2, swid FROM espn_settings WHERE user_id = ?"
+  ).bind(user.user_id).first().catch(() => null);
+  let ids = [];
+  try { ids = JSON.parse(row?.league_ids || "[]"); } catch { ids = []; }
+  ids = [...new Set(ids.map(x => String(x).replace(/\D/g, "")).filter(Boolean))];
+  if (!ids.length) return { leagues: [], connected: !!row };
+  const cookie = row?.espn_s2 ? await userEspnCookie(env, user.user_id) : null;
+  const leagues = await Promise.all(ids.map(async id => {
+    const kvKey = `hist:espnname:${id}`;
+    let meta = null;
+    try { meta = JSON.parse(await env.FF_CACHE.get(kvKey) || "null"); } catch { meta = null; }
+    if (!meta) {
+      const now = await espnLeagueNow(env, id, cookie);
+      if (now) {
+        meta = { name: now.d.settings?.name || "", season: now.season, teams: now.d.teams.length };
+        await env.FF_CACHE.put(kvKey, JSON.stringify(meta), { expirationTtl: 6 * 60 * 60 });
+      }
+    }
+    return {
+      espn_id: id,
+      name: meta?.name || `ESPN league ${id}`,
+      season: meta?.season || null,
+      teams: meta?.teams || null,
+      readable: !!meta,
+    };
+  }));
+  return { leagues, connected: true };
+}
+
 // GET /api/history/config/{anySeasonLeagueId}
 async function handleConfig(request, env, id) {
+  const espn = ESPN_ID_RE.exec(id);
+  if (espn) return handleEspnConfig(request, env, espn[1]);
   if (!ID_RE.test(id)) return json({ error: "That isn't a Sleeper league id." }, 400);
 
   const rootId = await env.FF_CACHE.get(`hist:alias:${id}`);
@@ -237,14 +366,16 @@ async function handleConfig(request, env, id) {
   return json(rec.config);
 }
 
-// GET /api/history/mine — the signed-in user's Sleeper leagues, one per chain
+// GET /api/history/mine — the signed-in user's Sleeper leagues (one per chain)
+// and connected ESPN leagues (`espn: { leagues, connected }`)
 async function handleMine(request, env) {
   const user = await getAuthUser(request, env);
   if (!user) return json({ error: "Not signed in", needsSignIn: true }, 401);
-  if (!user.sleeper_username) return json({ leagues: [], noUsername: true });
+  const espn = await mineEspn(env, user).catch(e => ({ leagues: [], error: e.message }));
+  if (!user.sleeper_username) return json({ leagues: [], noUsername: true, espn });
 
   const su = await sleeper(`/user/${encodeURIComponent(user.sleeper_username)}`);
-  if (!su?.user_id) return json({ leagues: [], badUsername: user.sleeper_username });
+  if (!su?.user_id) return json({ leagues: [], badUsername: user.sleeper_username, espn });
 
   const s = nflSeason();
   const [cur, next] = await Promise.all([
@@ -268,7 +399,7 @@ async function handleMine(request, env) {
     }));
   const opened = await Promise.all(leagues.map(l => env.FF_CACHE.get(`hist:alias:${l.league_id}`)));
   leagues.forEach((l, i) => { l.opened = !!opened[i]; });
-  return json({ leagues, username: user.sleeper_username });
+  return json({ leagues, username: user.sleeper_username, espn });
 }
 
 export async function handleHistory(request, env, path) {

@@ -29,6 +29,14 @@ binding       = "DB"
 database_name = "sleeper-helper-db"
 database_id   = "7b094e00-d010-43a8-8f1a-047e72901cd8"
 
+# Helper's private EspnCookies entrypoint (sleeper-helper/worker/src/espn-cookies.js):
+# the opener's ESPN cookies for a generic /l/espn_{id} league (espn-auth.js).
+# Not a public route — deploy helper FIRST, or this binding has nothing to call.
+[[services]]
+binding    = "HELPER"
+service    = "sleeper-helper-worker"
+entrypoint = "EspnCookies"
+
 # Daily FantasyCalc snapshot → R2 fc-snapshots/YYYY-MM-DD.json (day-of trade values).
 [triggers]
 crons = ["15 11 * * *"]

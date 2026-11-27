@@ -14,7 +14,8 @@
  *          /api/history/mine              ← signed-in user's Sleeper leagues
  */
 
-import { handleHistory } from "./history.js";
+import { handleHistory, espnRegistered } from "./history.js";
+import { ESPN_BASE, espnFetch } from "./espn-auth.js";
 
 const SLEEPER_BASE = "https://api.sleeper.app/v1";
 
@@ -205,7 +206,6 @@ const ESPN_LEAGUES = {
   wolfpack:  { id: 1656310, tradesFrom: 2018 },
   standrews: { id: 845744,  tradesFrom: 2021 },
 };
-const ESPN_BASE = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
 const ESPN_POS  = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST" };
 
 function espnJson(obj, status = 200, maxAge = 0) {
@@ -214,18 +214,6 @@ function espnJson(obj, status = 200, maxAge = 0) {
   return new Response(typeof obj === "string" ? obj : JSON.stringify(obj), { status, headers });
 }
 
-async function espnFetch(env, url) {
-  if (!env.ESPN_S2 || !env.ESPN_SWID) throw new Error("ESPN cookies not configured");
-  const res = await fetch(url, {
-    headers: {
-      Cookie: `espn_s2=${env.ESPN_S2}; SWID=${env.ESPN_SWID}`,
-      Accept: "application/json",
-      "User-Agent": "Mozilla/5.0",
-    },
-  });
-  if (!res.ok) throw new Error(`ESPN ${res.status}`);
-  return res.json();
-}
 
 // Same shape the R2 archive stores, so the page reads live and archived seasons alike.
 async function getEspnLiveSeason(env, key, league, season) {
@@ -234,7 +222,7 @@ async function getEspnLiveSeason(env, key, league, season) {
   if (cached) { try { return JSON.parse(cached); } catch { /* refetch */ } }
   try {
     const d = await espnFetch(env,
-      `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}?view=mTeam&view=mMatchupScore&view=mStatus`);
+      `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}?view=mTeam&view=mMatchupScore&view=mStatus`, league);
     if (!Array.isArray(d.teams) || !d.teams.length) return null;
     const data = {
       seasonId: season,
@@ -267,7 +255,7 @@ async function getEspnRecap(env, key, league, season) {
   if (cached) { try { return JSON.parse(cached); } catch { /* refetch */ } }
   try {
     const d = await espnFetch(env, `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}`
-      + "?view=mSettings&view=mTeam&view=mRoster&view=mMatchupScore&view=mStatus");
+      + "?view=mSettings&view=mTeam&view=mRoster&view=mMatchupScore&view=mStatus", league);
     if (!Array.isArray(d.teams) || !d.teams.length) return null;
     const st = d.settings || {};
     const data = {
@@ -340,7 +328,7 @@ async function buildEspnTrades(env, league, season) {
   // Period 0 is the preseason (draft-day / offseason trades).
   const base = `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}?view=mTransactions2&scoringPeriodId=`;
   const periods = await Promise.all(Array.from({ length: 19 }, (_, p) =>
-    espnFetch(env, base + p).then(d => d.transactions || []).catch(e => {
+    espnFetch(env, base + p, league).then(d => d.transactions || []).catch(e => {
       if (p === 0) throw e; // first call failing = auth problem, surface it
       return [];
     })
@@ -415,13 +403,13 @@ async function buildEspnTrades(env, league, season) {
 // Pre-draft trades (keeper deals) leave no roster trace, so only the owner's own show.
 async function rosterTrades(env, league, season, txs, known) {
   const base = `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}`;
-  const meta = await espnFetch(env, `${base}?view=mDraftDetail&view=mStatus`);
+  const meta = await espnFetch(env, `${base}?view=mDraftDetail&view=mStatus`, league);
   const st   = meta.status || {};
   const last = season >= currentSeason()
     ? (st.latestScoringPeriod || st.currentMatchupPeriod || 1)
     : (st.finalScoringPeriod || 17);
   const weeks = await Promise.all(Array.from({ length: last }, (_, i) =>
-    espnFetch(env, `${base}?view=mRoster&scoringPeriodId=${i + 1}`).catch(() => null)));
+    espnFetch(env, `${base}?view=mRoster&scoringPeriodId=${i + 1}`, league).catch(() => null)));
 
   const added = new Set(); // `${pid}:${toTeam}:${period}`
   txs.forEach(t => {
@@ -478,6 +466,24 @@ function espnLeagueById(id) {
   return e ? { key: e[0], league: e[1] } : null;
 }
 
+// Generic ESPN leagues (any league opened at /l/espn_{id}, see history.js) live
+// under the key `x{espnId}` — their own R2/KV namespace, so they can never touch a
+// curated league's archive. A fresh league object per request: its cookie is
+// looked up once (espn-auth.js) and kept on it for that request only.
+const ESPN_GENERIC_TRADES_FROM = 2018;   // ESPN's per-season endpoint starts here
+async function resolveEspn(env, { id, key }) {
+  if (key && ESPN_LEAGUES[key]) return { key, league: ESPN_LEAGUES[key] };
+  if (id != null) { const c = espnLeagueById(id); if (c) return c; }
+  const gid = id != null ? String(id) : (/^x(\d+)$/.exec(key || "") || [])[1];
+  if (!gid) return null;
+  const reg = await espnRegistered(env, gid);
+  if (!reg) return null;
+  return {
+    key: `x${gid}`,
+    league: { id: Number(gid), tradesFrom: ESPN_GENERIC_TRADES_FROM, generic: true, owner: reg.owner || null },
+  };
+}
+
 // Season core: settings, teams, members, schedule — trimmed. Past seasons are kept in R2
 // for good; the current one refreshes on the KV ttl. Seasons the cookie owner wasn't a
 // member of are only readable through leagueHistory (no per-player box scores there).
@@ -496,9 +502,9 @@ async function espnCore(env, key, league, season) {
   const views = "view=mSettings&view=mTeam&view=mMatchupScore&view=mStatus";
   let d = null, history = false;
   try {
-    d = await espnFetch(env, `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}?${views}`);
+    d = await espnFetch(env, `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${league.id}?${views}`, league);
   } catch {
-    const arr = await espnFetch(env, `${ESPN_BASE}/leagueHistory/${league.id}?seasonId=${season}&${views}`);
+    const arr = await espnFetch(env, `${ESPN_BASE}/leagueHistory/${league.id}?seasonId=${season}&${views}`, league);
     d = Array.isArray(arr) ? arr[0] : null;
     history = true;
   }
@@ -643,7 +649,7 @@ async function espnPlayerPoints(env, key, league, core, mp) {
   const out = {};
   for (const sp of sps) {
     const d = await espnFetch(env,
-      `${ESPN_BASE}/seasons/${core.season}/segments/0/leagues/${league.id}?view=mBoxscore&scoringPeriodId=${sp}`);
+      `${ESPN_BASE}/seasons/${core.season}/segments/0/leagues/${league.id}?view=mBoxscore&scoringPeriodId=${sp}`, league);
     (d.schedule || []).forEach(m => {
       if (m.matchupPeriodId !== mp) return;
       [m.home, m.away].forEach(s => {
@@ -703,7 +709,7 @@ async function espnSleeperTrades(env, key, league, season) {
 }
 
 async function handleEspnLeague(env, lid, espnId, season, resource, param) {
-  const hit = espnLeagueById(espnId);
+  const hit = await resolveEspn(env, { id: espnId });
   if (!hit) return espnJson({ error: "Unknown ESPN league" }, 404);
   const { key, league } = hit;
   const maxAge = season >= currentSeason() ? 300 : 3600;
@@ -714,6 +720,13 @@ async function handleEspnLeague(env, lid, espnId, season, resource, param) {
     if (resource === "trade-values")   return espnJson({}, 200, maxAge);
     if (resource === "trades" || resource === "transactions") {
       if (season < league.tradesFrom) return espnJson([], 200, maxAge);
+      if (league.generic) {
+        const t = await espnSleeperTrades(env, key, league, season).catch(e => {
+          console.warn(`ESPN trades ${key} ${season}:`, e.message);
+          return [];
+        });
+        return espnJson(t, 200, maxAge);
+      }
       return espnJson(await espnSleeperTrades(env, key, league, season), 200, maxAge);
     }
 
@@ -788,7 +801,8 @@ export default {
       if (!leagueKey || !seasonOrKey) return espnJson({ error: "Invalid ESPN route" }, 400);
 
       try {
-        const league = ESPN_LEAGUES[leagueKey];
+        const hit = await resolveEspn(env, { key: leagueKey });
+        const league = hit?.league;
 
         if (league && seasonOrKey === "trades" && /^\d{4}$/.test(espnSegments[2] || "")) {
           return espnJson(await getEspnTrades(env, leagueKey, league, Number(espnSegments[2])),
