@@ -145,6 +145,66 @@ league's archive. KV `hist:espn:{id}` → `{builtAt, owner, config}`.
 - Trades: seasons from 2018; a season the opener's cookies can't read returns no trades, not an error.
 - **Deploy helper first** — the `HELPER` binding points at its `EspnCookies` export.
 
+## MFL and Yahoo leagues — `/l/mfl_{id}` and `/l/yh_{id}`
+
+Same page, same rules as ESPN (first open needs an account, which becomes the league's
+`owner`; then the link is public), plus a per-league **Members only** switch.
+`worker/src/platform.js`.
+
+- **Nothing here talks to MFL or Yahoo.** Helper already serves both in Sleeper's shapes with
+  players in Sleeper ids, and holds what a read needs (the adapters, the player-id crosswalk,
+  the opener's MFL cookie / Yahoo token, MFL's registered user agent, its KV caches). So every
+  read goes to helper's private **`PlatformLeagues`** entrypoint over the `PLATFORMS` service
+  binding (`sleeper-helper/worker/src/platform-leagues.js`), as the owner:
+  `https://helper/{mfl|yahoo}/{league|draft|trades|seasons}/{key}[/{res}[/{arg}]]?user=`.
+  Chosen over sharing the shape code: a second copy of the crosswalk, the encryption key and
+  MFL's client registration would be three more things to keep in step. Deploy helper first.
+- **Seasons**: MFL — the league export's `history` list (each year has its own MFL id:
+  `mfl_{year}_{id}`, 10005's chain runs 2004 →). Yahoo — `renew` back / `renewed` forward
+  (`{gameId}_{leagueId}`), `yh_{season}_{id}`. Ids: `/l/mfl_{id}` = the newest season it
+  exists in (the opener's saved list, else this season or last); `/l/mfl_{year}_{id}` works
+  too; `/l/yh_{id}` must be on the opener's connected Yahoo account. Share link = `{mfl|yh}_{newestId}`.
+- **Owners** are rewritten to hold across seasons: MFL → `mfl:{franchiseId}` (MFL hides owner
+  names; franchise numbers carry over), Yahoo → `yh:{managerGuid}` (else `yh:t{teamId}`).
+  No takeover links.
+- **Storage**: KV `hist:plat:{rootId}` → `{builtAt, owner, membersOnly, config}`,
+  `hist:alias:{seasonKey|shareId}` → rootId. A past season's every resource is read once and
+  kept in R2 (`plat/{seasonKey}/{resource}[-{week}].json`); the current season sits in KV for
+  10 minutes. 401/403/429/5xx answers are never stored. A 400/404 (week 18 of a 17-week
+  season, no draft) is stored as empty.
+- **First open is slow and can hit MFL's rate limit** (~25 reads a season, 23 seasons for
+  10005). The page reads 4 weeks at a time for these leagues and retries a 429 with backoff;
+  helper skips scoring rules and future picks for past seasons (`ctx.lite`) and fetches MFL's
+  player list only for seasons with picks the crosswalk can't name. After that, R2 serves it.
+- **Members only** (`POST /api/history/members-only/{id} {on}`): when on, the config and every
+  `/api/league/…` read for the league need a signed-in member — the owner, or an account whose
+  connected MFL / Yahoo list (helper's `mfl_settings` / `yahoo_settings`, `leagues` column only)
+  has any season of it. Members see the switch in the banner. Note an MFL "member" includes
+  anyone who added the (public) league by id on their profile.
+- **Trades**: MFL `transactions` TRANS_TYPE=TRADE — players, `FP_{fid}_{year}_{round}` future
+  picks, `DP_{round}_{pick}` (0-based) current-year picks carrying `_slot` (the draft column,
+  snake-aware) so the page resolves the drafted player. Yahoo `transactions;type=trade`
+  (successful only; picks via `original_team_key`). Dynasty leagues get day-of FantasyCalc values
+  through the same freeze as Sleeper (`tradeValuesResponse`).
+- **Records are rebuilt from the regular season** (`regularSeason`, stored as `rosters-reg`): MFL's
+  standings `pf` counts all 17 weeks (playoff weeks, eliminated teams too), `pa` only H2H games, and
+  older seasons' `h2hw` include playoff wins — so each roster's W/L/T/PF/PA is recomputed from the
+  weeks before `playoff_week_start`, the way the page reads Sleeper's. Only a 200 answer is ever
+  browser-cached (a cached 429 kept a season out for an hour in testing).
+- **MFL facts seen on 10005**: an out-of-range week (18 in a 17-week season) comes back as the last
+  real week, so helper answers `[]` past `endWeek`; 2004 has no playoff bracket in MFL's API, so
+  that season has no champion. A throttled player-name lookup fails the trades/draft read rather
+  than archiving "Player #…".
+- **Consolation games don't count**: helper's MFL bracket is the main (non-consolation) bracket;
+  Yahoo's is rebuilt from playoff scoreboards, dropping `is_consolation` games and tagging any
+  game between already-eliminated teams `p: 3`/`p: 5`, so the page's title-path rule holds.
+- **Yahoo**: off until helper has `YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET` (the config says so).
+  Yahoo pages credit "Fantasy data provided by Yahoo Fantasy" in the banner and footer (API terms).
+  Built and unit-tested on fixtures only (`sleeper-helper/tests/yahoo.test.js`) — the trade
+  fixture is hand-made, since Yahoo's docs carry no trade sample.
+- Landing page lists connected MFL & Yahoo leagues (`/api/history/mine` → `mfl`, `yahoo`) and the
+  finder takes MFL (`…/2025/home/10005`) and Yahoo (`…/f1/12345`) links.
+
 ## Day-of trade values — daily FantasyCalc snapshots
 
 A cron (`[triggers]` in `worker/wrangler.toml`, 11:15 UTC) saves FantasyCalc's dynasty values to

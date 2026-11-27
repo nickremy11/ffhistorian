@@ -385,3 +385,12 @@ footer { background: transparent; border-top: 2px solid var(--rule); }
 .link-tag { color: var(--card-text2); border-color: var(--card-gold); }
 .active-mark { color: var(--card-gold); }
 .active-note, .active-note .active-mark { color: var(--brown-light); }
+.members-only {
+  display: inline-flex; align-items: center; gap: 6px; margin: 12px 0 0 10px; cursor: pointer;
+  font-family: var(--font-display), serif; font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--gold-light);
+}
+.yahoo-credit { margin-top: 8px; font-size: 0.75rem; color: var(--parchment); }
+.yahoo-credit a { color: var(--gold-light); }
+.missing-note { margin: 0 auto 14px; padding: 8px 14px; max-width: 900px; font-size: 0.85rem; color: var(--ink, inherit);
+  border: 1px dashed var(--red); border-radius: 4px; background: rgba(var(--tint), 0.04); }

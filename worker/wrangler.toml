@@ -37,6 +37,14 @@ binding    = "HELPER"
 service    = "sleeper-helper-worker"
 entrypoint = "EspnCookies"
 
+# Helper's private PlatformLeagues entrypoint (sleeper-helper/worker/src/platform-leagues.js):
+# every read of an MFL / Yahoo league at /l/mfl_{id} or /l/yh_{id} (platform.js), made
+# with the opener's MFL cookie / Yahoo token. Deploy helper FIRST, as for EspnCookies.
+[[services]]
+binding    = "PLATFORMS"
+service    = "sleeper-helper-worker"
+entrypoint = "PlatformLeagues"
+
 # Daily FantasyCalc snapshot → R2 fc-snapshots/YYYY-MM-DD.json (day-of trade values).
 [triggers]
 crons = ["15 11 * * *"]

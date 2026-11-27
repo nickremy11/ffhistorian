@@ -95,9 +95,10 @@ footer { padding: 24px; }
 
     <div id="rbMine"></div>
     <div id="rbEspn"></div>
+    <div id="rbPlat"></div>
 
     <div class="card rb-finder">
-      <p id="finderHint">Open any league's history book: paste a Sleeper league ID or link, or an ESPN league link.</p>
+      <p id="finderHint">Open any league's history book: paste a Sleeper league ID or link, or an ESPN, MFL or Yahoo league link.</p>
       <div class="rb-finder-row">
         <input id="finderInput" class="search-input" placeholder="e.g. 1180232430068178944, sleeper.com/leagues/… or fantasy.espn.com/…?leagueId=…" autocomplete="off"/>
         <button class="setup-btn" style="padding:0 18px;font-family:var(--font-display),serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer" onclick="openLeagueFromInput()">Open</button>
@@ -107,7 +108,7 @@ footer { padding: 24px; }
   </main>
 
   <footer>
-    <p><a href="https://ffhistorian.com">FF Historian</a> · Built on <a href="https://sleeper.com">Sleeper</a> &amp; <a href="https://fantasy.espn.com">ESPN</a> data</p>
+    <p><a href="https://ffhistorian.com">FF Historian</a> · Built on <a href="https://sleeper.com">Sleeper</a>, <a href="https://fantasy.espn.com">ESPN</a>, <a href="https://www.myfantasyleague.com">MFL</a> &amp; <a href="https://football.fantasysports.yahoo.com">Yahoo Fantasy</a> data</p>
   </footer>
 </div>
 
@@ -119,6 +120,8 @@ footer { padding: 24px; }
 // Signed in, it lists YOUR leagues and nothing else (/api/history/mine):
 //   Your Sleeper leagues — this season's, each opening at /l/{id}
 //   Your ESPN leagues    — every league connected on the profile, at /l/espn_{id}
+//   Your MFL & Yahoo leagues — the same, at /l/mfl_{id} / /l/yh_{id} (shown only
+//                          when one is connected)
 // A league with a curated page (LEAGUES, league/leagues.js — or Elite FFL) opens
 // that page instead, with its own name and logo. Signed out, nothing is listed;
 // the curated pages are still reachable by their links.
@@ -135,6 +138,7 @@ const RB = {
   mineMsg: "",
   espn: null,          // null = not loaded / signed out; [] = none
   espnMsg: "",
+  plat: null,          // MFL + Yahoo leagues connected on the profile; null = hide the section
 };
 
 // ESPN leagues with a page of their own (Elite FFL isn't in LEAGUES — it has its own app)
@@ -191,6 +195,13 @@ function espnRows() {
   });
 }
 
+function platRows() {
+  return (RB.plat || []).map(l => ({
+    href: `/l/${l.id}`, name: l.name, logo: "", emoji: "🏈",
+    platform: l.id.startsWith("mfl_") ? "MFL" : "Yahoo", format: "", seasons: l.season ? String(l.season) : "", extra: "",
+  }));
+}
+
 const matches = (r, q) => !q || `${r.name} ${r.platform} ${r.format} ${r.seasons}`.toLowerCase().includes(q);
 
 function logoHtml(r) {
@@ -243,7 +254,9 @@ function draw() {
     RB.mine === null ? null : mineRows(), RB.mine === null || RB.mine.length ? RB.mineMsg : (RB.mineMsg || "No Sleeper leagues this season."), q);
   const b = listSection(document.getElementById("rbEspn"), "Your ESPN leagues",
     RB.espn === null ? null : espnRows(), RB.espnMsg, q);
-  const shown = a.shown + b.shown, total = a.total + b.total;
+  const c = listSection(document.getElementById("rbPlat"), "Your MFL & Yahoo leagues",
+    RB.plat && RB.plat.length ? platRows() : null, "", q);
+  const shown = a.shown + b.shown + c.shown, total = a.total + b.total + c.total;
   document.getElementById("rbCount").textContent = q ? `${shown} of ${total} leagues match` : "";
 }
 
@@ -253,6 +266,11 @@ document.getElementById("rbSearch").addEventListener("input", e => { RB.q = e.ta
 
 function openLeagueFromInput() {
   const raw = document.getElementById("finderInput").value.trim();
+  // MFL: …myfantasyleague.com/2025/home/10005   Yahoo: …fantasysports.yahoo.com/f1/12345
+  const mfl = /myfantasyleague\.com/i.test(raw) && raw.match(/\/(\d{4})\/[a-z_]+\/(\d+)/i);
+  if (mfl) { location.href = `/l/mfl_${mfl[1]}_${mfl[2]}`; return; }
+  const yh = /yahoo\.com/i.test(raw) && raw.match(/\/f1\/(\d+)/i);
+  if (yh) { location.href = `/l/yh_${yh[1]}`; return; }
   const espn = /espn\.com/i.test(raw) && raw.match(/leagueId=(\d+)/i);
   if (espn) {
     const c = curatedEspn(espn[1]);
@@ -274,6 +292,7 @@ async function loadMine() {
     const r = await fetch("/api/history/mine", { credentials: "include" });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
+    RB.plat = [...(d.mfl?.leagues || []), ...(d.yahoo?.leagues || [])].sort((a, b) => a.name.localeCompare(b.name));
     const e = d.espn || {};
     RB.espn = e.leagues || [];
     RB.espnMsg = e.error ? `Couldn't read your ESPN leagues (${escH(e.error)}).`
@@ -301,8 +320,8 @@ async function loadMine() {
   const onOut = () => {
     RB.mine = null;
     RB.mineMsg = `<a href="#" onclick="SharedAuth.openModal();return false;">Sign in</a> to see your Sleeper and ESPN leagues here.`;
-    RB.espn = null; RB.espnMsg = "";
-    hint.innerHTML = `Open any league's history book: paste a Sleeper league ID or link, or an ESPN league link. Opening a league for the first time needs an account; after that, its link works for anyone.`;
+    RB.espn = null; RB.espnMsg = ""; RB.plat = null;
+    hint.innerHTML = `Open any league's history book: paste a Sleeper league ID or link, or an ESPN, MFL or Yahoo league link. Opening a league for the first time needs an account; after that, its link works for anyone.`;
     draw();
   };
   if (!window.SharedAuth) return onOut();

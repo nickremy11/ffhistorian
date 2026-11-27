@@ -22,6 +22,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { ESPN_BASE, espnFetch, userEspnCookie } from "./espn-auth.js";
+import { isPlatConfigId, handlePlatConfig, handleMembersOnly, minePlatforms } from "./platform.js";
 
 const SLEEPER = "https://api.sleeper.app/v1";
 const ID_RE = /^\d{6,25}$/;
@@ -331,6 +332,7 @@ async function mineEspn(env, user) {
 
 // GET /api/history/config/{anySeasonLeagueId}
 async function handleConfig(request, env, id) {
+  if (isPlatConfigId(id)) return handlePlatConfig(request, env, id, getAuthUser);
   const espn = ESPN_ID_RE.exec(id);
   if (espn) return handleEspnConfig(request, env, espn[1]);
   if (!ID_RE.test(id)) return json({ error: "That isn't a Sleeper league id." }, 400);
@@ -371,11 +373,15 @@ async function handleConfig(request, env, id) {
 async function handleMine(request, env) {
   const user = await getAuthUser(request, env);
   if (!user) return json({ error: "Not signed in", needsSignIn: true }, 401);
-  const espn = await mineEspn(env, user).catch(e => ({ leagues: [], error: e.message }));
-  if (!user.sleeper_username) return json({ leagues: [], noUsername: true, espn });
+  const [espn, plats] = await Promise.all([
+    mineEspn(env, user).catch(e => ({ leagues: [], error: e.message })),
+    minePlatforms(env, user).catch(() => ({ mfl: { leagues: [] }, yahoo: { leagues: [] } })),
+  ]);
+  const { mfl, yahoo } = plats;
+  if (!user.sleeper_username) return json({ leagues: [], noUsername: true, espn, mfl, yahoo });
 
   const su = await sleeper(`/user/${encodeURIComponent(user.sleeper_username)}`);
-  if (!su?.user_id) return json({ leagues: [], badUsername: user.sleeper_username, espn });
+  if (!su?.user_id) return json({ leagues: [], badUsername: user.sleeper_username, espn, mfl, yahoo });
 
   const s = nflSeason();
   const [cur, next] = await Promise.all([
@@ -399,12 +405,16 @@ async function handleMine(request, env) {
     }));
   const opened = await Promise.all(leagues.map(l => env.FF_CACHE.get(`hist:alias:${l.league_id}`)));
   leagues.forEach((l, i) => { l.opened = !!opened[i]; });
-  return json({ leagues, username: user.sleeper_username, espn });
+  return json({ leagues, username: user.sleeper_username, espn, mfl, yahoo });
 }
 
 export async function handleHistory(request, env, path) {
-  if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   const seg = path.replace("/api/history/", "").split("/");
+  if (request.method === "POST" && seg[0] === "members-only" && seg[1]) {
+    try { return await handleMembersOnly(request, env, seg[1], getAuthUser); }
+    catch (e) { return json({ error: e.message }, 500); }
+  }
+  if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   try {
     if (seg[0] === "config" && seg[1]) return await handleConfig(request, env, seg[1]);
     if (seg[0] === "mine") return await handleMine(request, env);

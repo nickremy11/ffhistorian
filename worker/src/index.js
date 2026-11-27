@@ -11,10 +11,13 @@
  *          /api/projections/:season/:week ← Sleeper weekly projections (Recap tab)
  *          /api/espn/:key/recap/:season   ← ESPN settings + rosters + schedule (Recap tab)
  *          /api/history/config/:leagueId  ← generated league config for /l/{id} (history.js)
- *          /api/history/mine              ← signed-in user's Sleeper leagues
+ *          /api/history/mine              ← signed-in user's Sleeper / ESPN / MFL / Yahoo leagues
+ *          /api/history/members-only/:id  ← POST {on} — an MFL/Yahoo league's members-only switch
+ *          /api/league/{mfl|yh}_{year}_{id}/… ← MFL / Yahoo seasons via helper (platform.js)
  */
 
-import { handleHistory, espnRegistered } from "./history.js";
+import { handleHistory, espnRegistered, getAuthUser } from "./history.js";
+import { PLAT_LID_RE, handlePlatLeague } from "./platform.js";
 import { ESPN_BASE, espnFetch } from "./espn-auth.js";
 
 const SLEEPER_BASE = "https://api.sleeper.app/v1";
@@ -139,6 +142,63 @@ function genericPickValue(season, round, picks) {
       || picks[`${season}_${round}`]
       || picks[`${season}_${round}_early`]
       || 0;
+}
+
+// Frozen "day-of" values for a league's trades:
+// { [transaction_id]: { source, asOf, players:{pid:val}, picks:{"season:round:roster_id":val} } }
+// Lazily freezes FantasyCalc values for post-cutoff trades on read, each from the
+// snapshot of its own day. Shared by Sleeper leagues and MFL/Yahoo (platform.js).
+async function tradeValuesResponse(env, leagueId, trades) {
+  const r2Key = `trade-values/${leagueId}.json`;
+  let frozen = {};
+  try {
+    const obj = await env.ESPN_DATA.get(r2Key);
+    if (obj) frozen = JSON.parse(await obj.text());
+  } catch { frozen = {}; }
+
+  const toFreeze = trades.filter(tx =>
+    (tx.status_updated || 0) >= FC_CUTOFF_MS && !frozen[tx.transaction_id]
+  );
+
+  if (toFreeze.length) {
+    // No snapshot that close (a trade from before snapshots began) → left unfrozen:
+    // no day-of value rather than a wrong one, and still open to a later backfill.
+    // A trade from the last few days with no snapshot yet uses the live values.
+    const memo = {};
+    let live;
+    let changed = false;
+    for (const tx of toFreeze) {
+      const ts = tx.status_updated || 0;
+      let snap = await fcSnapshotFor(env, dayKey(ts), memo);
+      if (!snap && Date.now() - ts < SNAP_LOOKBACK_DAYS * 864e5) {
+        if (live === undefined) live = await getFcMaps(env);
+        if (live) snap = { date: dayKey(Date.now()), maps: live };
+      }
+      if (!snap) continue;
+      const fc = snap.maps;
+      const rec = { source: "FC", asOf: snap.date, frozenAt: Date.now(), players: {}, picks: {} };
+      for (const pid of Object.keys(tx.adds || {})) {
+        rec.players[pid] = fc.players[pid] || 0;
+      }
+      for (const p of (tx.draft_picks || [])) {
+        rec.picks[`${p.season}:${p.round}:${p.roster_id}`] =
+          genericPickValue(p.season, p.round, fc.picks);
+      }
+      frozen[tx.transaction_id] = rec;
+      changed = true;
+    }
+    if (changed) {
+      try {
+        await env.ESPN_DATA.put(r2Key, JSON.stringify(frozen), {
+          httpMetadata: { contentType: "application/json" },
+        });
+      } catch { /* non-fatal — return what we have */ }
+    }
+  }
+
+  return new Response(JSON.stringify(frozen), {
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
 }
 
 // Aggregate completed trades for a league (KV-cached, shared by /trades + /trade-values)
@@ -863,6 +923,14 @@ export default {
     const espnLid = /^espn_(\d+)_(\d{4})$/.exec(leagueId);
     if (espnLid) return handleEspnLeague(env, leagueId, espnLid[1], Number(espnLid[2]), resource, param);
 
+    // ── MFL / Yahoo league (mfl_{year}_{id}, yh_{season}_{id}) — platform.js ──
+    if (PLAT_LID_RE.test(leagueId)) {
+      return handlePlatLeague(request, env, leagueId, resource, param, {
+        getAuthUser,
+        tradeValues: (lid, trades) => tradeValuesResponse(env, lid, trades),
+      });
+    }
+
     const ttl = getTTL();
 
     // ── ROSTERS ──────────────────────────────────────────
@@ -1058,58 +1126,7 @@ export default {
     // Returns { [transaction_id]: { source, asOf, players:{pid:val}, picks:{"season:round:roster_id":val} } }
     // Lazily freezes live FantasyCalc values for post-cutoff trades on read.
     if (resource === "trade-values") {
-      const r2Key = `trade-values/${leagueId}.json`;
-      let frozen = {};
-      try {
-        const obj = await env.ESPN_DATA.get(r2Key);
-        if (obj) frozen = JSON.parse(await obj.text());
-      } catch { frozen = {}; }
-
-      const trades = await fetchAllTrades(env, leagueId, ttl);
-      const toFreeze = trades.filter(tx =>
-        (tx.status_updated || 0) >= FC_CUTOFF_MS && !frozen[tx.transaction_id]
-      );
-
-      if (toFreeze.length) {
-        // Each trade from the snapshot of its own day. No snapshot that close (a trade
-        // from before snapshots began) → left unfrozen: no day-of value rather than a
-        // wrong one, and still open to a later backfill. A trade from the last few days
-        // with no snapshot yet (cron hasn't run) uses the live values.
-        const memo = {};
-        let live;
-        let changed = false;
-        for (const tx of toFreeze) {
-          const ts = tx.status_updated || 0;
-          let snap = await fcSnapshotFor(env, dayKey(ts), memo);
-          if (!snap && Date.now() - ts < SNAP_LOOKBACK_DAYS * 864e5) {
-            if (live === undefined) live = await getFcMaps(env);
-            if (live) snap = { date: dayKey(Date.now()), maps: live };
-          }
-          if (!snap) continue;
-          const fc = snap.maps;
-          const rec = { source: "FC", asOf: snap.date, frozenAt: Date.now(), players: {}, picks: {} };
-          for (const pid of Object.keys(tx.adds || {})) {
-            rec.players[pid] = fc.players[pid] || 0;
-          }
-          for (const p of (tx.draft_picks || [])) {
-            rec.picks[`${p.season}:${p.round}:${p.roster_id}`] =
-              genericPickValue(p.season, p.round, fc.picks);
-          }
-          frozen[tx.transaction_id] = rec;
-          changed = true;
-        }
-        if (changed) {
-          try {
-            await env.ESPN_DATA.put(r2Key, JSON.stringify(frozen), {
-              httpMetadata: { contentType: "application/json" },
-            });
-          } catch { /* non-fatal — return what we have */ }
-        }
-      }
-
-      return new Response(JSON.stringify(frozen), {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
+      return tradeValuesResponse(env, leagueId, await fetchAllTrades(env, leagueId, ttl));
     }
 
     return new Response(JSON.stringify({ error: "Unknown resource" }), {
